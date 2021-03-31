@@ -6,6 +6,10 @@
 #include <TimeLib.h>              // Biclioteca de configuração de data e hota 
 #include <DS1307RTC.h>            // Biblioteca de integração com o modulo RTC
 #include <SD.h>                   // SD Card Biblioteca
+#define TINY_GSM_MODEM_SIM800     // Tipo de modem que estamos usando (emboora usemos o modem sim800l os parametros do sim808 apresentaram maior estabilidade).
+#include <TinyGsmClient.h>        // Biblioteca de comunicação com o Modem
+#include <PubSubClient.h>
+#include <Keypad.h>               // Biblioteca para controle do teclado matricial 4x4  
 
 #ifndef _Utils_H
 #define _Utils_H
@@ -139,11 +143,31 @@ class UID
 
 enum ScreenName
 {
+  // SETUP
   SCREEN_DRAW_LOGO,
   SCREEN_INIT,
   SCREEN_VERIFY_DATA_LOGGER_SD,
   SCREEN_VERIFY_DATA_LOGGER_RTC,
   SCREEN_VERIFY_RFID,
+  SCREEN_VERIFY_MODEM,
+  SCREEN_VERIFY_MQTT,
+  // OPERATOR
+  SCREEN_OPERATOR_READ,
+  SCREEN_OPERATOR_SEARCH,
+  SCREEN_OPERATOR_FOUND,
+  SCREEN_OPERATOR_NOT_FOUND,
+  // MENUS
+  SCREEN_MENU_PRINCIPAL,
+  SCREEN_MENU_CADASTRO,
+  SCREEN_MENU_CADASTRO_OPERADOR_CHOICE,
+  SCREEN_MENU_CADASTRO_OPERADOR_READ_CARD,
+  SCREEN_MENU_CADASTRO_VEHICLE,
+  SCREEN_MENU_CADASTRO_PERMISSION,
+  // ACCESSES SCREEN
+  SCREEN_ACCCESSES,
+  SCREEN_ACCCESSES_CHOICE,
+  SCREEN_ACCCESSES_CARD,
+  SCREEN_ACCCESSES_PASSWORD,
 };
 
 class DrawScreen 
@@ -152,12 +176,17 @@ class DrawScreen
     DrawScreen ();
     void begin();
     void drawSetup(ScreenName screen, int interval, uint8_t status, bool estado[]);
+    void readOperator(ScreenName screen, String name, String cardID);
+    void drawMenu(ScreenName screen);
+
   private:
     ScreenName _screen;
     uint8_t _status;
     bool _state[8];
     int _interval;
     char _buffer[24];
+    String _name;
+    String _cardID;
 };
 
 enum RFIDStatus
@@ -171,8 +200,12 @@ class RFIDReader
   public:
     RFIDReader ();
     RFIDStatus begin();
+    bool getID();
+    String IDValue;
+
   private:
     bool _result;
+    String _value;
 };
 
 enum DataLoggerStatus
@@ -197,6 +230,105 @@ class DatalLogger
     String get2digits(int number);
     String getTimestamp();
     uint8_t _pin_ss_datalogger;
+};
+
+enum ModemGPRSStatus{
+  MODEM_READY,
+  MODEM_ERROR_RESTART,
+  MODEM_OK_RESTART,
+  MODEM_ERROR_NETWORK,
+  MODEM_ERROR_GPRS,
+};
+
+class ModemGPRS
+{
+  private:
+    
+  public:
+    ModemGPRS();
+    ModemGPRSStatus setup();
+};
+
+enum MQTTStatus{
+  MQTT_READY,
+  MQTT_FAILED,
+};
+
+class MQTTConnection
+{
+  private:
+    char _buffer[24];
+    char _user[24];
+    char _password[24];
+  public:
+    MQTTConnection();
+    MQTTStatus setup(const char * domain, uint16_t port, const char * user, const char * password);
+};
+
+
+class Operator
+{
+  private:
+    String usuario = "";
+    String nome = "";
+    String comp = "";
+    byte c1 = 0;
+    byte c3 = 0;
+    byte status = 0;
+    String ope = "";
+    bool successRead;
+  public:
+    Operator();
+    String Read();
+
+};
+
+
+enum MetodeAccesses{
+  CARD,
+  PASSWORD,
+};
+
+class Menu
+{
+private:
+  ScreenName _nextScreen;
+  MetodeAccesses _metode;
+  bool _successRead;
+public:
+  String _UUIDCard;
+  char _buffer[24];
+  Menu();
+  void menuPrincipal();
+  void menuCadastro();
+  void menuCadastroOperador();
+  void menuAccesses(ScreenName nextScreen);
+  void menuAccesses(MetodeAccesses metode, ScreenName nextScreen);
+};
+
+
+class Keyboard 
+{
+  private:
+    char _pressedKey;
+  public:
+    Keyboard();
+    char keyboardGetKeyNumeric();
+};
+
+
+class Access
+{
+  private:
+  MetodeAccesses _metode;
+  int _position;
+  char _keyPressed;
+  String _secret;
+  
+  public:
+  char _buffer[16];
+  Access();
+  bool accessValidate(MetodeAccesses metode);
 };
 
 #endif 

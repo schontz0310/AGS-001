@@ -7,69 +7,53 @@
 // 06/08/2020 - V2.1 incluido telas de espera                                 //////
 // 02/11/2020 - V3.1 Refatoração completa do cogido                           //////
 // 10/12/2020 - V4.0 Refatoração completa usando plataformIO/VScode/GitHub    //////
-//                                                                            //////
+//  @Commit xxxxxxxxx                                                         //////
 //  [x] -> Correção da conectividade Gprs/Mqtt com problema de timeout        //////
-//  [ ] -> Refatoração dos codigos de tela                                    //////
+//  [x] -> Refatoração dos codigos de tela                                    //////
 //  [ ] -> Apresentar codigo de erro com opção de continuar                   //////
 //  [ ] -> Incluir liberação de funções com apresentação de cartão MASTER     //////
 //  [ ] -> Ocultar caracteres de senha ao digitar                             //////
+//  [x] -> Criado lista de codigos de erro                                    //////
 //                                                                            //////
 ////////////////////////////////////////////////////////////////////////////////////
-
 
 ////////////////////////////////////////////////////////////////////////////////////
 //                              CODIGOS DE ERROS                              //////
 //  ------------------------------------------------------------------------  //////
 // 1  - SD                                                                    //////
-// 3  - RFID                                                                  //////
-// 5  - LORA                                                                  //////
-// 11 - MODEM GSM                                                             //////
-// 4  - SD E RFID                                                             //////
-// 6  - SD E LORA                                                             //////
-// 9  - SD E RFID E LORA                                                      //////
-// 8  - RFID E LORA                                                           //////
-// 12 - SD E MODEM GSM                                                        //////
-// 15 - SD , RFID E MODEM GSM                                                 //////
-// 20 - SD ,RFID ,LORA E MODEM GSM                                            //////
-// 14 - RFID E MODEM GSM                                                      //////
-// 19 - RFID, LORA E MODEM GSM                                                //////
-// 16 - LORA E MODEM GSM                                                      //////
+// 3  - RTC                                                                   //////
+// 4  - SD E RTC                                                              //////
+// 5  - RFID                                                                  //////
+// 6  - SD E RFID                                                             //////
+// 8  - RTC E RFID                                                            //////
+// 9  - SD, RTC, RFID                                                         //////
+// 11 - MODEM GPRS                                                            //////
+// 12 - SD E MODEM GPRS                                                       //////
+// 14 - RTC E MODEM GPRS                                                      //////
+// 15 - SD, RTC E MODEM GPRS                                                  //////
+// 16 - RFID E MODEM GPRS                                                     //////
+// 17 - SD, RFID E MODEM GPRS                                                 //////
+// 19 - RTC, RFID E MODEM GPRS                                                //////
+// 20 - CONEXÃO MQTT                                                          //////
+// 21 - SD E CONEXAO MQTT                                                     //////
+// 23 - RTC E CONEXAO MQTT                                                    //////
+// 24 - SD, RTC E CONEXAO MQTT                                                //////
+// 25 - RFID E CONEXAO MQTT                                                   //////
+// 26 - SD, RFID E CONEXAO MQTT                                               //////
+// 28 - RTC, RFID E CONEXAO MQTT                                              //////
+// 31 - MODEM GPRS E CONEXAO MQTT                                             //////
+// 32 - SD, MODEM GPRS E CONEXAO MQTT                                         //////
+// 34 - RTC, MODEM GPRS E CONEXAO MQTT                                        //////
+// 36 - RFID, MODEM GPRS E CONEXAO MQTT                                       //////
 //                                                                            //////
 ////////////////////////////////////////////////////////////////////////////////////
 
-////////////////////////////////////////////////////////////////////////////////////
-//                            CODIGOS DE FUNCOES                              //////
-//  ------------------------------------------------------------------------  //////
-// 001  - CADASTRO DE OPERADOR                                                //////
-// 002  - CADASTRO DE VEICULO                                                 //////
-// 003  - CADASTRO DE PERMISSOES                                              //////
-// 004  - CADASTRO DE ABASTECIMENTO                                           //////
-////////////////////////////////////////////////////////////////////////////////////
-
-////////////////////////////////////////////////////////////////////////////////////
-//                                CODIGOS DE MENUS                            //////
-//  ------------------------------------------------------------------------  //////
-// COD_MENU = 11  ---> Menu de Cadastro                                       //////
-// COD_MENU = 111  |-> Menu Cadasro Operadores                                //////
-// COD_MENU = 112  |-> Menu Cadasro placas                                    //////
-// COD_MENU = 113  |-> Menu Cadasro Permissoes                                //////
-// COD_MENU = 12  ---> Menu de Configurações                                  //////
-// COD_MENU = 13  ---> Menu de Entradas                                       //////
-////////////////////////////////////////////////////////////////////////////////////
-
-
-//#include <Arduino.h>
-
-#define TINY_GSM_MODEM_SIM808     // Tipo de modem que estamos usando (emboora usemos o modem sim800l os parametros do sim808 apresentaram maior estabilidade).
-#include <TinyGsmClient.h>        // Biblioteca de comunicação com o Modem
-#include <PubSubClient.h>
 #include <SPI.h>                  // Biblioteca de comunicação SPI
 #include <LoRa.h>                 // Biblioteca de integração com o modulo LORA - NiceRF v2.0 - 915 Mhz ou RFM95W
 #include <Keypad.h>               // Biblioteca para controle do teclado matricial 4x4  
-#include <Utils.h>
+#include <Utils.h>                // Biblioteca com as classes e funções para funcionamento do sistema 
 
-// Declaração de constantes e variaveis
-
+// Declare of constants and variables
 const uint8_t PIN_SS_DATA_LOG   =       46;                                   // Configuravel - Pino Slave Select/Chip Select modulo DATALOGGER
 const bool GET_SYSTEM_TIMESTAMP =       true;                                // Variavel para setar quando o programa deve pegar a hora do sistema
 
@@ -84,28 +68,41 @@ const uint8_t RELE_02           =       A13;                                  //
 const uint8_t RELE_01           =       A0;                                   // Pino Rele_01
 const uint8_t BOTAO             =       8;                                    // Botao de uso geral
 
-const String USER               =       "supply-admin";                        // "USUARIO"
-const String PASS               =       "supply@19!";                          // "SENHA"
-const String TOPIC              =       "Supply/";                             // TOPICO MQTT para publicação
-const String MQTT_SERVER        =       "mqtt.datamills.com.br";               //"mqtt://things.ubidots.com"
-const int MQTT_PORT             =       1883;                                  // Porta para comunicação com Broker MQTT
+const String TOPIC              =       "Supply/";                            // TOPICO MQTT para publicação
 
-String SENHA_AGS                =       "380130";                              // Senha ROOT, apenas pessoal autorizado da AGS possue
+#define MQTT_SERVER                     "mqtt.internetecoisas.com.br"         //"mqtt://things.ubidots.com"
+#define MQTT_PORT                       1883                                  // Porta para comunicação com Broker MQTT
+#define USER                            "eliverto.moraes"                     // "USUARIO"
+#define PASS                            "Qe7XA#R36jJs"                        // "SENHA"
 
 uint8_t statusCheck             =       0;
-bool stateCheck[8]              =       {0,0,0,0,0,0,0,0};                     // 0=SD, 1=RTC, 2=RFID           
 
-// Criação de instancias
+bool stateCheck[8]              =       {0,0,0,0,0,0,0,0};                    // 0=SD, 1=RTC, 2=RFID, 3=MODEN           
 
-Som alerta(SOM);                                                               // Instancia para classe de sinais audio visuais
+const uint8_t errorCode[6]      =       {1,3,5,11,20,0};                       
+
+// Initialize instancies 
+
+Som alert(SOM);                                                               
 UID uniqueID;
 DrawScreen visor;
 RFIDReader leitorRfid;
 DatalLogger datalogger;
+ModemGPRS SIM800l;
+MQTTConnection BrokerMQTT;
+Operator Operador;
+
+// VARIAVEIS DO SISTEMA //
+
+String OPERADOR_REG;
+String OPERADOR_TAG;
+String VEICULO_REG;
+String VEICULO_TAG;
+
 
 void setup() {
 
-  // Inicializa estado e modo dos pinos
+  // Initialize and setup pins
   pinMode(PIN_SS_DATA_LOG, OUTPUT);
   pinMode(SOM, OUTPUT);
   pinMode(LED_VERMELHO, OUTPUT);
@@ -115,72 +112,124 @@ void setup() {
   pinMode(BOTAO, INPUT);
   digitalWrite(BOTAO, LOW);
   
-  // Inicia Serial
+  // Initialize Serial 
   Serial.begin(9600);
 
-  // Incia a comunicação SPI
+  // Initialize SPI protocol
   SPI.begin();
 
-  // Inicia Monitor LCD
+  // Initialize LCD monitor
   visor.begin();
 
-  // monta tela com Logo Marca 
+  // show first screen with logo 
   visor.drawSetup(SCREEN_DRAW_LOGO, 2000, 0, 0);
 
-  // monta tela com apresentação e UIID
+  // show screen with UID
   visor.drawSetup(SCREEN_INIT, 3000, 0, 0);
   
-  // inicializa o Datalogger
+  // Initialize SD card reader
   if (datalogger.begin(PIN_SS_DATA_LOG) == DATALOGGER_SD_OK){
     Serial.println(F("SD PASSOU"));
     statusCheck = 0;
     stateCheck[0] = 0;
-
+    alert.somCerto(LED_VERDE, 50);
   }else {
     Serial.println(F("SD NAO PASSOU"));
     statusCheck = 1;
     stateCheck[0] = 1;
+    alert.somErrado(LED_VERMELHO, 250, 50);
   }
   visor.drawSetup(SCREEN_VERIFY_DATA_LOGGER_SD, 2000, statusCheck, stateCheck);
 
-  // Se a codição for verdadeira tenta pegar a hora do sistema
+  // Initialize RTC 
   if (GET_SYSTEM_TIMESTAMP){
     if (datalogger.setSystemTimestamp() == DATALOGGER_TIME_OK){
     statusCheck = 0;
     stateCheck[1] = 0;
+    alert.somCerto(LED_VERDE, 50);
     }
   }else{
     if (datalogger.getDateHour() == DATALOGGER_TIME_OK){
       statusCheck = 0;
       stateCheck[1] = 0;
+    alert.somCerto(LED_VERDE, 50);
     }else{
       statusCheck = 1;
-      stateCheck[1] = 0;
+      stateCheck[1] = 1;
+    alert.somErrado(LED_VERMELHO, 250, 50);
     }
     
   }
   visor.drawSetup(SCREEN_VERIFY_DATA_LOGGER_RTC, 2000, statusCheck, stateCheck);
 
-  // Inicializa o RFID  
+  // Initialize RFID reader
   if(leitorRfid.begin() == RFID_OK){
     statusCheck = 0;
     stateCheck[2] = 0;
+    alert.somCerto(LED_VERDE, 50);
   }else{
     statusCheck = 1;
     stateCheck[2] = 1;
+    alert.somErrado(LED_VERMELHO, 250, 50);
   }
   visor.drawSetup(SCREEN_VERIFY_RFID, 2000, statusCheck, stateCheck);
 
+  // Initialize modem GPRS
+  if (SIM800l.setup() == MODEM_READY){
+    statusCheck = 0;
+    stateCheck[3] = 0;
+    alert.somCerto(LED_VERDE, 50);
+  }else{
+    statusCheck = 1;
+    stateCheck[3] = 1;
+    alert.somErrado(LED_VERMELHO, 250, 50);
+  }
+  visor.drawSetup(SCREEN_VERIFY_MODEM, 2000, statusCheck, stateCheck);
 
+  // Initialize MQTT connection
+  if (BrokerMQTT.setup(MQTT_SERVER, MQTT_PORT, USER, PASS) == MQTT_READY){
+    statusCheck = 0;
+    stateCheck[4] = 0;
+    alert.somCerto(LED_VERDE, 50);
+  }else{
+    statusCheck = 1;
+    stateCheck[4] = 1;
+    alert.somErrado(LED_VERMELHO, 250, 50);
+  }
+  visor.drawSetup(SCREEN_VERIFY_MQTT, 2000, statusCheck, stateCheck);
+
+  // Check for errors
+  uint8_t errorValue  = 0;
+  for (size_t i = 0; i <= 5; i++)
+  {
+    Serial.println("===========================");
+    Serial.print("== error value = ");
+    Serial.println(errorValue);
+    Serial.print("== posição = ");
+    Serial.println(i);
+    Serial.print("== stateCheck = ");
+    Serial.println(stateCheck[i]);
+    Serial.print("== errorCode = ");
+    Serial.println(errorCode[i]);
+    Serial.println("===========================\n\n") ;
+
+    if (stateCheck[i] == 1){
+      errorValue = errorValue + errorCode[i];
+    }
+  }
+  
+  Serial.print(F("Error Code = "));
+  Serial.println(errorValue);
 }
 
 void loop() {
 
-  Serial.println(F("INCIO DO LOOP"));
-  alerta.somCerto(LED_VERDE, 50);
-  delay(2000);
-  alerta.somErrado(LED_VERMELHO, 250, 50);
-  delay(2000);
-  Serial.println(uniqueID.getUID());
-
+  OPERADOR_REG = "";
+  OPERADOR_TAG = "";
+  VEICULO_REG = "";
+  VEICULO_TAG = "";
+  Serial.println(F("==============================================================="));
+  Serial.println(F("====================== INICIO DO SISTEMA ======================"));
+  Serial.println(F("==============================================================="));
+  Operador.Read();
 }
