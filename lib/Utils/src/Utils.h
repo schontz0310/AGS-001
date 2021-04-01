@@ -161,6 +161,7 @@ enum ScreenName
   SCREEN_MENU_CADASTRO,
   SCREEN_MENU_CADASTRO_OPERADOR_CHOICE,
   SCREEN_MENU_CADASTRO_OPERADOR_READ_CARD,
+  SCREEN_MENU_CADASTRO_OPERADOR_READ_NAME,
   SCREEN_MENU_CADASTRO_VEHICLE,
   SCREEN_MENU_CADASTRO_PERMISSION,
   // ACCESSES SCREEN
@@ -224,12 +225,16 @@ class DatalLogger
     DataLoggerStatus begin(uint8_t pin_ss_datalogger);
     DataLoggerStatus setSystemTimestamp();
     DataLoggerStatus getDateHour();
+    bool checkOperatorExist(String uuid);
   private:
     bool getDate(const char *str);
     bool getTime(const char *str);
     String get2digits(int number);
     String getTimestamp();
     uint8_t _pin_ss_datalogger;
+    String _uuidToCheck;
+    String _uuidRead;
+    char _readCharacther;
 };
 
 enum ModemGPRSStatus{
@@ -297,6 +302,7 @@ private:
   bool _successRead;
 public:
   String _UUIDCard;
+  String _operatorName;
   char _buffer[24];
   Menu();
   void menuPrincipal();
@@ -314,6 +320,17 @@ class Keyboard
   public:
     Keyboard();
     char keyboardGetKeyNumeric();
+    String keyboardGetKeyAlfanumeric(ScreenName screen);
+    //variables
+    unsigned long _elapsedTime;
+    unsigned long _lastTime = 0;
+    ScreenName _screen;
+    char _buffer[16];
+    char _lastPressedKey;
+    int _offset;
+    int _timesPressed;
+    int _counter = 0;
+    int _cursorPossition = 0;
 };
 
 

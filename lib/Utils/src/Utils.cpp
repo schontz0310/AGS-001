@@ -1,26 +1,23 @@
 
 #include <Utils.h>
-                 // SD Card Biblioteca
 
 String SENHA_AGS                =       "380130";                             // Senha ROOT, apenas pessoal autorizado da AGS possue
-
+const uint8_t _buzzer           =       27;
+const uint8_t _pinDatalogger    =       46;   
 const byte lines = 4;     //NUMERO DE LINHAS DO TECLADO
 const byte columns = 4;  //NUMERO DE COLUNAS DO TECLADO
 
 //MATRIZ DO TECLADO DEFINA PELAS LINHAS E COLUNAS 
 char matriz[lines][columns] =
 {
-
   { '1', '2', '3', 'A'},
   { '4', '5', '6', 'B'},
   { '7', '8', '9', 'C'},
   { '*', '0', '#', 'D'},
-
 };
 byte linesPines[lines] = {49, 47, 45, 43};       //PINOS CONECTADOS AS LINHAS DO TECLADO
 byte columnsPines[columns] = {41, 39, 37, 35}; //PINOS CONECTADOS AS COLUNAS DO TECLADO
 char tecla_presionada;
-
 
 U8GLIB_ST7920_128X64_1X display(11, 12, 13);
 MFRC522 rfid(SS_SDA_PIN, RST_PIN);
@@ -30,12 +27,17 @@ TinyGsmClient gsmClient(modemGSM);
 PubSubClient client(gsmClient);
 Keypad keyboard = Keypad( makeKeymap(matriz), linesPines, columnsPines, lines, columns);
 
-
 DrawScreen screen;
 RFIDReader rfidReader;
 Menu menu;
 Access access;
 Keyboard key;
+DatalLogger sd;
+Som buzzer(_buzzer);
+File fileName;
+
+const uint8_t ledErrado      =       29;
+const uint8_t ledCerto       =       31;
 
 Som::Som(int pinBuzzer){
 	_pinBuzzer = pinBuzzer;
@@ -44,12 +46,10 @@ Som::Som(int pinBuzzer){
 }
 
 void Som::somCerto(int pinLed, int interval){
-
 	_pinLed = pinLed;
 	_time = 2;
 	_interval = interval;
 	
-
 	digitalWrite(_pinBuzzer, HIGH);
   for (int j = 0; j < _time; j++)
   {
@@ -65,12 +65,10 @@ void Som::somCerto(int pinLed, int interval){
 }
 
 void Som::somErrado(int pinLed, int firstInterval, int lastInterval){
-
 	_pinLed = pinLed;
 	_time = 3;
 	_firstInterval = firstInterval;
 	_lastInterval = lastInterval;
-
 	digitalWrite(_pinBuzzer, HIGH);
   for (int j = 0; j < _time; j++)
   {
@@ -103,7 +101,6 @@ DrawScreen::DrawScreen(){
 }
 
 void DrawScreen::begin(){
-
   if ( display.getMode() == U8G_MODE_R3G3B2 )
     display.setColorIndex(255);   // white
   else if ( display.getMode() == U8G_MODE_GRAY2BIT )
@@ -117,9 +114,7 @@ void DrawScreen::readOperator(ScreenName screen, String name, String cardID){
   _screen = screen;
   _name = name;
   _cardID = cardID;  
-
   memset(_buffer, 0, sizeof(_buffer));
-
   switch (_screen)
   {
     case SCREEN_OPERATOR_READ:
@@ -183,38 +178,31 @@ void DrawScreen::drawMenu(ScreenName screen){
         display.setFont(u8g_font_unifont);
         display.drawStr( 10, 12, "MENU PRINCIPAL");
         display.drawStr( 11, 12, "MENU PRINCIPAL");
-
         display.setFont(u8g_font_6x10);
         display.drawStr( 27, 28, "CADASTROS");
         display.drawStr( 6, 28, "1");
         display.drawRFrame(1, 17, 15, 15, 3);
-
         display.drawStr( 27, 44, "CONFIGORACOES");
         display.drawStr( 6, 44, "2");
         display.drawRFrame(1, 33, 15, 15, 3);
-
         display.drawStr( 27, 60, "ENTRADAS");
         display.drawStr( 6, 60, "3");
         display.drawRFrame(1, 49, 15, 15, 3);
       } while (display.nextPage());  
     break;
-
     case SCREEN_MENU_CADASTRO:
       display.firstPage();
       do {
         display.setFont(u8g_font_unifont);
         display.drawStr( 27, 12, "CADASTROS");
         display.drawStr( 28, 12, "CADASTROS");
-
         display.setFont(u8g_font_6x10);
         display.drawStr( 27, 28, "OPERADORES");
         display.drawStr( 6, 28, "1");
         display.drawRFrame(1, 17, 15, 15, 3);
-
         display.drawStr( 27, 44, "VEICULOS");
         display.drawStr( 6, 44, "2");
         display.drawRFrame(1, 33, 15, 15, 3);
-
         display.drawStr( 27, 60, "PERMISSOES");
         display.drawStr( 6, 60, "3");
         display.drawRFrame(1, 49, 15, 15, 3);
@@ -227,16 +215,13 @@ void DrawScreen::drawMenu(ScreenName screen){
         display.setFont(u8g_font_unifont);
         display.drawStr( 7, 12, "TELA DE ACESSO");
         display.drawStr( 8, 12, "TELA DE ACESSO");
-
         display.setFont(u8g_font_6x10);
         display.drawStr( 27, 28, "ACESSO COM SENHA");
         display.drawStr( 6, 28, "1");
         display.drawRFrame(1, 17, 15, 15, 3);
-
         display.drawStr( 27, 44, "ACESSO COM CARTAO");
         display.drawStr( 6, 44, "2");
         display.drawRFrame(1, 33, 15, 15, 3);
-
         display.drawStr( 27, 60, "CANCELAR");
         display.drawStr( 6, 60, "*");
         display.drawRFrame(1, 49, 15, 15, 3);
@@ -272,10 +257,8 @@ void DrawScreen::drawMenu(ScreenName screen){
       } while (display.nextPage());  
     break;
     case SCREEN_MENU_CADASTRO_OPERADOR_READ_CARD:
-      _cardID = menu._UUIDCard;
       display.firstPage();
       do {
-        _cardID.toCharArray(menu._buffer, 24);
         display.setFont(u8g_font_6x10);
         display.drawStr( 22, 15, "  APROXIME O  ");
         display.drawStr( 22, 25, "    CARTAO    ");
@@ -284,6 +267,19 @@ void DrawScreen::drawMenu(ScreenName screen){
         display.drawStr( 4, 45, menu._buffer);
         display.drawRFrame(1, 31, 126, 18, 5);
       } while (display.nextPage());  
+    break;
+    case SCREEN_MENU_CADASTRO_OPERADOR_READ_NAME:
+      
+      display.firstPage();
+      do {
+        display.setFont(u8g_font_6x10);
+        display.drawStr( 22, 15, "DIGITE O NOME ");
+        display.drawStr( 22, 25, " DO OPERADOR  ");
+        display.drawStr( 3, 60, "APERTE '*' PARA MENU");
+        display.setFont(u8g_font_unifont);
+        display.drawStr( 4, 45, key._buffer);
+        display.drawRFrame(1, 31, 126, 18, 5);
+      } while (display.nextPage());
     break;
   }
 }
@@ -548,24 +544,49 @@ bool RFIDReader::getID(){
   return 1;
 }
 
-DatalLogger::DatalLogger(){
-
-}
-
 tmElements_t tm;
 String timestamp;
 const char *monthNameDatalogger[12] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
 
+DatalLogger::DatalLogger(){
+
+}
+
 DataLoggerStatus DatalLogger::begin(uint8_t pin_ss_datalogger){
   _pin_ss_datalogger = pin_ss_datalogger;
 
-  if (SD.begin(_pin_ss_datalogger)) {             // Inicializaçção do cartao SD
+  if (SD.begin(_pin_ss_datalogger)) {
     delay(100);
     return DATALOGGER_SD_OK;
   } else {
     delay(100);
     return DATALOGGER_SD_ERROR;
   }  
+}
+
+bool DatalLogger::checkOperatorExist(String uuid){
+  _uuidToCheck = uuid;
+  fileName.close();
+  delay(50);
+  fileName = SD.open("CAD-OPE.txt");
+  if (fileName) {
+    while (fileName.available())
+    {
+      _uuidRead = fileName.readStringUntil(13);
+      Serial.println(_uuidRead);
+      _uuidRead.trim();
+      _uuidRead.remove(0,43);
+      _uuidRead.remove(8);
+      Serial.print(F("Verificação de UUID = "));
+      Serial.print(_uuidRead);
+      Serial.print (F(" Sistema <---> Nova Tag "));
+      Serial.println (_uuidToCheck);
+      if (_uuidToCheck == _uuidRead){
+        return true;
+      }
+    }
+    return false;
+  }
 }
 
 DataLoggerStatus DatalLogger::setSystemTimestamp(){
@@ -584,7 +605,6 @@ bool DatalLogger::getDate(const char *str) {
   char Month[12];
   int Day, Year;
   uint8_t monthIndex;
-
   if (sscanf(str, "%s %d %d", Month, &Day, &Year) != 3) return false;
   for (monthIndex = 0; monthIndex < 12; monthIndex++) {
     if (strcmp(Month, monthNameDatalogger[monthIndex]) == 0) break;
@@ -702,7 +722,6 @@ MQTTConnection::MQTTConnection(){
 
 }
 
-
 MQTTStatus MQTTConnection::setup(const char * domain, uint16_t port, const char * user, const char * password)
 {
   Serial.println(F("Connecting to MQTT Server..."));
@@ -720,7 +739,6 @@ MQTTStatus MQTTConnection::setup(const char * domain, uint16_t port, const char 
     return MQTT_FAILED;
   }
 }
-
 
 Menu::Menu(){
 }
@@ -846,9 +864,9 @@ void Menu::menuAccesses(MetodeAccesses metode, ScreenName nextScreen){
   {
     case CARD:
       screen.drawMenu(SCREEN_ACCCESSES_CARD);
-
     break;
     case PASSWORD:
+      memset(access._buffer, 0, sizeof(access._buffer));
       screen.drawMenu(SCREEN_ACCCESSES_PASSWORD);
       if(access.accessValidate(_metode)){
         Serial.println("Senha valida");
@@ -904,9 +922,21 @@ void Menu::menuCadastroOperador(){
   _UUIDCard = rfidReader.IDValue;
   _UUIDCard.toCharArray(_buffer, 24);
   screen.drawMenu(SCREEN_MENU_CADASTRO_OPERADOR_READ_CARD);
-  delay(3000);
+  delay(2000);
   memset(_buffer, 0, sizeof(_buffer));
  //check if card exist
+  if (!sd.begin(_pinDatalogger)){
+    buzzer.somErrado(ledErrado, 250, 50);
+    loop();
+  }
+  if(sd.checkOperatorExist(_UUIDCard)){
+    buzzer.somErrado(ledErrado, 250, 50);
+    loop();
+  }
+  screen.drawMenu(SCREEN_MENU_CADASTRO_OPERADOR_READ_NAME);
+  Serial.println("passou aqui - 1");
+  _operatorName = key.keyboardGetKeyAlfanumeric(SCREEN_MENU_CADASTRO_OPERADOR_READ_NAME);
+  Serial.println("passou aqui - 2");
  //enter operator name
  //enter operator level
 }
@@ -933,7 +963,6 @@ bool Access::accessValidate(MetodeAccesses metode){
             _position = 0;
             }
           break;
-
           case 'B':
             if (_position > 0 && _position != 14) {
                 _position--;
@@ -946,7 +975,6 @@ bool Access::accessValidate(MetodeAccesses metode){
               }
               _buffer[_position] = ' ';    
           break;
-
           case 'A':
             _secret = "";
             for (byte i = 0; i < sizeof(_buffer); i++) {
@@ -962,7 +990,6 @@ bool Access::accessValidate(MetodeAccesses metode){
               return false;
             }
           break;
-
           case '*':
             memset(_buffer, 0, sizeof(_buffer));
             if (_position > 0){
@@ -970,7 +997,6 @@ bool Access::accessValidate(MetodeAccesses metode){
             }
             loop();
           break;
-
           case '0':
           if (_position < 15){
             Serial.println("entrou no case 0");
@@ -1050,17 +1076,13 @@ bool Access::accessValidate(MetodeAccesses metode){
             _position++;  
           }
           break;
-
         }
         Serial.println(_keyPressed);
         screen.drawMenu(SCREEN_ACCCESSES_PASSWORD);
       } while (_keyPressed != '.');
-      Serial.println("Saiu do loop problema");
     break;
-
     case CARD:
     break;  
-
     default:
     break;
   }
@@ -1074,6 +1096,76 @@ char Keyboard::keyboardGetKeyNumeric(){
   _pressedKey = keyboard.getKey();
   } while (!_pressedKey);
   return _pressedKey;
+}
+
+String Keyboard::keyboardGetKeyAlfanumeric(ScreenName targetScreen){
+  _offset = 300;
+  memset(_buffer, 0, sizeof(_buffer));
+  _screen = targetScreen;
+  _elapsedTime = millis();
+  do{
+    _pressedKey = keyboard.getKey();
+    if (millis() > _lastTime + _offset)
+    {
+      _lastTime = millis();
+      if (_timesPressed > 0)
+      {
+        _counter++;
+        if (_counter == 3)
+        {
+          if (_cursorPossition < 14) {
+            _cursorPossition++;
+          }
+          _timesPressed = 0;
+        }
+      }
+    }
+    switch (_pressedKey)
+    {
+      case '0':
+        if (_lastPressedKey != '0' && _timesPressed > 0)
+        {
+          _timesPressed = 0;
+        }
+        _elapsedTime = millis();
+        _timesPressed++;
+        _counter = 0;
+        _lastPressedKey = '0';
+        if (_timesPressed > 5)
+        {
+          _timesPressed = 1;
+        }
+        if (_timesPressed == 1)
+        {
+          _buffer[_cursorPossition] = '+';
+          screen.drawMenu(targetScreen);
+        }
+        if (_timesPressed == 2)
+        {
+          _buffer[_cursorPossition] = '-';
+          screen.drawMenu(targetScreen);
+        }
+        if (_timesPressed == 3)
+        {
+          _buffer[_cursorPossition] = '*';
+          screen.drawMenu(targetScreen);
+        }
+        if (_timesPressed == 4)
+        {
+          _buffer[_cursorPossition] = '/';
+          screen.drawMenu(targetScreen);
+        }
+        if (_timesPressed == 5)
+        {
+          _buffer[_cursorPossition] = '0';
+          screen.drawMenu(targetScreen);
+        }
+      break;
+      default:
+      break;
+    }
+  } while (_pressedKey != '?');
+  Serial.println("Saiu da funcao do teclado alfa");
 }
 
 Operator::Operator(){
