@@ -322,6 +322,7 @@ class Keyboard
     char keyboardGetKeyNumeric();
     String keyboardGetKeyAlfanumeric(ScreenName screen);
     //variables
+    String NameValue;
     unsigned long _elapsedTime;
     unsigned long _lastTime = 0;
     ScreenName _screen;

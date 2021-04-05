@@ -937,6 +937,7 @@ void Menu::menuCadastroOperador(){
   Serial.println("passou aqui - 1");
   _operatorName = key.keyboardGetKeyAlfanumeric(SCREEN_MENU_CADASTRO_OPERADOR_READ_NAME);
   Serial.println("passou aqui - 2");
+  Serial.println("Nome = " + _operatorName);
  //enter operator name
  //enter operator level
 }
@@ -1099,7 +1100,7 @@ char Keyboard::keyboardGetKeyNumeric(){
 }
 
 String Keyboard::keyboardGetKeyAlfanumeric(ScreenName targetScreen){
-  _offset = 300;
+  _offset = 250;
   memset(_buffer, 0, sizeof(_buffer));
   _screen = targetScreen;
   _elapsedTime = millis();
@@ -1122,6 +1123,99 @@ String Keyboard::keyboardGetKeyAlfanumeric(ScreenName targetScreen){
     }
     switch (_pressedKey)
     {
+
+      case 'D':
+      case '#':
+      case '*':
+        loop();
+      break;
+
+      case 'A':
+        if (_lastPressedKey != 'A' && _timesPressed > 0)
+        {
+          _timesPressed = 0;
+        }
+        _elapsedTime = millis();
+        _timesPressed++;
+        _counter = 0;
+        _lastPressedKey = 'A';
+        if (_timesPressed > 1)
+        {
+          _timesPressed = 1;
+          break;
+        }
+        
+        if (_timesPressed == 1)
+        { 
+          NameValue = ' ';
+          for (byte i = 0; i < sizeof(_buffer); i++)
+            {
+              NameValue.concat(String(_buffer[i]));
+              Serial.println(NameValue);
+            }
+            NameValue.toUpperCase();
+            return NameValue;
+        }
+      break;
+
+      case 'B':
+        if (_lastPressedKey != 'B' && _timesPressed > 0)
+        {
+          _timesPressed = 0;
+        }
+        _timesPressed++;
+        _counter = 0;
+        _lastPressedKey = 'B';
+
+        if (_timesPressed > 1)
+        {
+          _timesPressed = 1;
+          break;
+        }
+
+        if (_timesPressed == 1)
+        {
+          if (_cursorPossition > 0 && _cursorPossition != 14){
+            _cursorPossition--;
+          }
+          if (_cursorPossition == 14 && _buffer[_cursorPossition] == ' '){
+            _cursorPossition--;
+          }
+          _buffer[_cursorPossition] = ' ';
+          screen.drawMenu(targetScreen); 
+        }
+        if (_cursorPossition > 0 && _cursorPossition != 14) {
+          _cursorPossition--;
+        }
+        if (_cursorPossition == 14 && _buffer[_cursorPossition] == ' ') {
+          _cursorPossition--;
+        }
+        break;
+      break;
+
+      case 'C':
+        if (_lastPressedKey != 'C' && _timesPressed > 0)
+        {
+          _timesPressed = 0;
+        }
+        _elapsedTime = millis();
+        _timesPressed++;
+        _counter = 0;
+        _lastPressedKey = 'C';
+        if (_timesPressed > 1)
+        {
+          _timesPressed = 1;
+          break;
+        }
+        
+        if (_timesPressed == 1)
+        {
+          memset(_buffer, 0, sizeof(_buffer));
+          _cursorPossition = -1;
+          screen.drawMenu(targetScreen); 
+        }
+        break;
+
       case '0':
         if (_lastPressedKey != '0' && _timesPressed > 0)
         {
@@ -1161,6 +1255,337 @@ String Keyboard::keyboardGetKeyAlfanumeric(ScreenName targetScreen){
           screen.drawMenu(targetScreen);
         }
       break;
+
+      case '1':
+        if (_lastPressedKey != '1' && _timesPressed > 0)
+        {
+          _timesPressed = 0;
+        }
+        _elapsedTime = millis();
+        _timesPressed++;
+        _counter = 0;
+        _lastPressedKey = '1';
+        if (_timesPressed > 5)
+        {
+          _timesPressed = 1;
+        }
+        if (_timesPressed == 1)
+        {
+          _buffer[_cursorPossition] = '(';
+          screen.drawMenu(targetScreen);
+        }
+        if (_timesPressed == 2)
+        {
+          _buffer[_cursorPossition] = ')';
+          screen.drawMenu(targetScreen);
+        }
+        if (_timesPressed == 3)
+        {
+          _buffer[_cursorPossition] = '.';
+          screen.drawMenu(targetScreen);
+        }
+        if (_timesPressed == 4)
+        {
+          _buffer[_cursorPossition] = ',';
+          screen.drawMenu(targetScreen);
+        }
+        if (_timesPressed == 5)
+        {
+          _buffer[_cursorPossition] = '1';
+          screen.drawMenu(targetScreen);
+        }
+      break;
+
+      case '2':
+        if (_lastPressedKey != '2' && _timesPressed > 0)
+        {
+          _timesPressed = 0;
+        }
+        _elapsedTime = millis();
+        _timesPressed++;
+        _counter = 0;
+        _lastPressedKey = '2';
+        if (_timesPressed > 4)
+        {
+          _timesPressed = 1;
+        }
+        if (_timesPressed == 1)
+        {
+          _buffer[_cursorPossition] = 'A';
+          screen.drawMenu(targetScreen);
+        }
+        if (_timesPressed == 2)
+        {
+          _buffer[_cursorPossition] = 'B';
+          screen.drawMenu(targetScreen);
+        }
+        if (_timesPressed == 3)
+        {
+          _buffer[_cursorPossition] = 'C';
+          screen.drawMenu(targetScreen);
+        }
+        if (_timesPressed == 4)
+        {
+          _buffer[_cursorPossition] = '2';
+          screen.drawMenu(targetScreen);
+        }
+      break;
+
+      case '3':
+        if (_lastPressedKey != '3' && _timesPressed > 0)
+        {
+          _timesPressed = 0;
+        }
+        _elapsedTime = millis();
+        _timesPressed++;
+        _counter = 0;
+        _lastPressedKey = '3';
+        if (_timesPressed > 4)
+        {
+          _timesPressed = 1;
+        }
+        if (_timesPressed == 1)
+        {
+          _buffer[_cursorPossition] = 'D';
+          screen.drawMenu(targetScreen);
+        }
+        if (_timesPressed == 2)
+        {
+          _buffer[_cursorPossition] = 'E';
+          screen.drawMenu(targetScreen);
+        }
+        if (_timesPressed == 3)
+        {
+          _buffer[_cursorPossition] = 'F';
+          screen.drawMenu(targetScreen);
+        }
+        if (_timesPressed == 4)
+        {
+          _buffer[_cursorPossition] = '3';
+          screen.drawMenu(targetScreen);
+        }
+      break;  
+
+      case '4':
+        if (_lastPressedKey != '4' && _timesPressed > 0)
+        {
+          _timesPressed = 0;
+        }
+        _elapsedTime = millis();
+        _timesPressed++;
+        _counter = 0;
+        _lastPressedKey = '4';
+        if (_timesPressed > 4)
+        {
+          _timesPressed = 1;
+        }
+        if (_timesPressed == 1)
+        {
+          _buffer[_cursorPossition] = 'G';
+          screen.drawMenu(targetScreen);
+        }
+        if (_timesPressed == 2)
+        {
+          _buffer[_cursorPossition] = 'H';
+          screen.drawMenu(targetScreen);
+        }
+        if (_timesPressed == 3)
+        {
+          _buffer[_cursorPossition] = 'I';
+          screen.drawMenu(targetScreen);
+        }
+        if (_timesPressed == 4)
+        {
+          _buffer[_cursorPossition] = '4';
+          screen.drawMenu(targetScreen);
+        }
+      break;
+
+      case '5':
+        if (_lastPressedKey != '5' && _timesPressed > 0)
+        {
+          _timesPressed = 0;
+        }
+        _elapsedTime = millis();
+        _timesPressed++;
+        _counter = 0;
+        _lastPressedKey = '5';
+        if (_timesPressed > 4)
+        {
+          _timesPressed = 1;
+        }
+        if (_timesPressed == 1)
+        {
+          _buffer[_cursorPossition] = 'J';
+          screen.drawMenu(targetScreen);
+        }
+        if (_timesPressed == 2)
+        {
+          _buffer[_cursorPossition] = 'K';
+          screen.drawMenu(targetScreen);
+        }
+        if (_timesPressed == 3)
+        {
+          _buffer[_cursorPossition] = 'L';
+          screen.drawMenu(targetScreen);
+        }
+        if (_timesPressed == 4)
+        {
+          _buffer[_cursorPossition] = '5';
+          screen.drawMenu(targetScreen);
+        }
+      break;
+
+      case '6':
+        if (_lastPressedKey != '6' && _timesPressed > 0)
+        {
+          _timesPressed = 0;
+        }
+        _elapsedTime = millis();
+        _timesPressed++;
+        _counter = 0;
+        _lastPressedKey = '6';
+        if (_timesPressed > 4)
+        {
+          _timesPressed = 1;
+        }
+        if (_timesPressed == 1)
+        {
+          _buffer[_cursorPossition] = 'M';
+          screen.drawMenu(targetScreen);
+        }
+        if (_timesPressed == 2)
+        {
+          _buffer[_cursorPossition] = 'N';
+          screen.drawMenu(targetScreen);
+        }
+        if (_timesPressed == 3)
+        {
+          _buffer[_cursorPossition] = 'O';
+          screen.drawMenu(targetScreen);
+        }
+        if (_timesPressed == 4)
+        {
+          _buffer[_cursorPossition] = '6';
+          screen.drawMenu(targetScreen);
+        }
+      break;
+
+      case '7':
+        if (_lastPressedKey != '7' && _timesPressed > 0)
+        {
+          _timesPressed = 0;
+        }
+        _elapsedTime = millis();
+        _timesPressed++;
+        _counter = 0;
+        _lastPressedKey = '7';
+        if (_timesPressed > 5)
+        {
+          _timesPressed = 1;
+        }
+        if (_timesPressed == 1)
+        {
+          _buffer[_cursorPossition] = 'P';
+          screen.drawMenu(targetScreen);
+        }
+        if (_timesPressed == 2)
+        {
+          _buffer[_cursorPossition] = 'Q';
+          screen.drawMenu(targetScreen);
+        }
+        if (_timesPressed == 3)
+        {
+          _buffer[_cursorPossition] = 'R';
+          screen.drawMenu(targetScreen);
+        }
+        if (_timesPressed == 4)
+        {
+          _buffer[_cursorPossition] = 'S';
+          screen.drawMenu(targetScreen);
+        }
+        if (_timesPressed == 5)
+        {
+          _buffer[_cursorPossition] = '7';
+          screen.drawMenu(targetScreen);
+        }
+      break;
+
+      case '8':
+        if (_lastPressedKey != '8' && _timesPressed > 0)
+        {
+          _timesPressed = 0;
+        }
+        _elapsedTime = millis();
+        _timesPressed++;
+        _counter = 0;
+        _lastPressedKey = '8';
+        if (_timesPressed > 4)
+        {
+          _timesPressed = 1;
+        }
+        if (_timesPressed == 1)
+        {
+          _buffer[_cursorPossition] = 'T';
+          screen.drawMenu(targetScreen);
+        }
+        if (_timesPressed == 2)
+        {
+          _buffer[_cursorPossition] = 'U';
+          screen.drawMenu(targetScreen);
+        }
+        if (_timesPressed == 3)
+        {
+          _buffer[_cursorPossition] = 'V';
+          screen.drawMenu(targetScreen);
+        }
+        if (_timesPressed == 4)
+        {
+          _buffer[_cursorPossition] = '8';
+          screen.drawMenu(targetScreen);
+        }
+      break;
+
+      case '9':
+        if (_lastPressedKey != '9' && _timesPressed > 0)
+        {
+          _timesPressed = 0;
+        }
+        _elapsedTime = millis();
+        _timesPressed++;
+        _counter = 0;
+        _lastPressedKey = '9';
+        if (_timesPressed > 5)
+        {
+          _timesPressed = 1;
+        }
+        if (_timesPressed == 1)
+        {
+          _buffer[_cursorPossition] = 'W';
+          screen.drawMenu(targetScreen);
+        }
+        if (_timesPressed == 2)
+        {
+          _buffer[_cursorPossition] = 'X';
+          screen.drawMenu(targetScreen);
+        }
+        if (_timesPressed == 3)
+        {
+          _buffer[_cursorPossition] = 'Y';
+          screen.drawMenu(targetScreen);
+        }
+        if (_timesPressed == 4)
+        {
+          _buffer[_cursorPossition] = 'Z';
+          screen.drawMenu(targetScreen);
+        }
+        if (_timesPressed == 5)
+        {
+          _buffer[_cursorPossition] = '9';
+          screen.drawMenu(targetScreen);
+        }
+      break;
+
       default:
       break;
     }
