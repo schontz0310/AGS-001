@@ -48,8 +48,17 @@
 //                                                                            //////
 ////////////////////////////////////////////////////////////////////////////////////
 
+////////////////////////////////////////////////////////////////////////////////////
+//                            CODIGOS DE FUNCOES                              //////
+//  ------------------------------------------------------------------------  //////
+// [x]001  - CADASTRO DE OPERADOR                                             //////
+// [ ]002  - CADASTRO DE VEICULO                                              //////
+// [ ]003  - CADASTRO DE PERMISSOES                                           //////
+// [ ]004  - CADASTRO DE ABASTECIMENTO                                        //////
+////////////////////////////////////////////////////////////////////////////////////
+
+
 #include <SPI.h>                  // Biblioteca de comunicação SPI
-#include <LoRa.h>                 // Biblioteca de integração com o modulo LORA - NiceRF v2.0 - 915 Mhz ou RFM95W
 #include <Keypad.h>               // Biblioteca para controle do teclado matricial 4x4  
 #include <Utils.h>                // Biblioteca com as classes e funções para funcionamento do sistema 
 
@@ -120,7 +129,6 @@ void setup() {
 
   // Initialize LCD monitor
   visor.begin();
-
   // show first screen with logo 
   visor.drawSetup(SCREEN_DRAW_LOGO, 2000, 0, 0);
 

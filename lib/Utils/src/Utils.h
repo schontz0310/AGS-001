@@ -10,6 +10,7 @@
 #include <TinyGsmClient.h>        // Biblioteca de comunicação com o Modem
 #include <PubSubClient.h>
 #include <Keypad.h>               // Biblioteca para controle do teclado matricial 4x4  
+#include <SPI.h> 
 
 #ifndef _Utils_H
 #define _Utils_H
@@ -146,6 +147,7 @@ enum ScreenName
   // SETUP
   SCREEN_DRAW_LOGO,
   SCREEN_INIT,
+  SCREEN_PROGRESS,
   SCREEN_VERIFY_DATA_LOGGER_SD,
   SCREEN_VERIFY_DATA_LOGGER_RTC,
   SCREEN_VERIFY_RFID,
@@ -158,10 +160,10 @@ enum ScreenName
   SCREEN_OPERATOR_NOT_FOUND,
   // MENUS
   SCREEN_MENU_PRINCIPAL,
-  SCREEN_MENU_CADASTRO,
-  SCREEN_MENU_CADASTRO_OPERADOR_CHOICE,
+  SCREEN_MENU_CADASTRO,  SCREEN_MENU_CADASTRO_OPERADOR_CHOICE,
   SCREEN_MENU_CADASTRO_OPERADOR_READ_CARD,
   SCREEN_MENU_CADASTRO_OPERADOR_READ_NAME,
+  SCREEN_MENU_CADASTRO_OPERADOR_READ_LEVEL,
   SCREEN_MENU_CADASTRO_VEHICLE,
   SCREEN_MENU_CADASTRO_PERMISSION,
   // ACCESSES SCREEN
@@ -179,12 +181,12 @@ class DrawScreen
     void drawSetup(ScreenName screen, int interval, uint8_t status, bool estado[]);
     void readOperator(ScreenName screen, String name, String cardID);
     void drawMenu(ScreenName screen);
-
-  private:
-    ScreenName _screen;
     uint8_t _status;
     bool _state[8];
     int _interval;
+
+  private:
+    ScreenName _screen;
     char _buffer[24];
     String _name;
     String _cardID;
@@ -226,11 +228,13 @@ class DatalLogger
     DataLoggerStatus setSystemTimestamp();
     DataLoggerStatus getDateHour();
     bool checkOperatorExist(String uuid);
+    void WriteOperatorInDatalogger();
+    String getTimestamp();
+
   private:
     bool getDate(const char *str);
     bool getTime(const char *str);
     String get2digits(int number);
-    String getTimestamp();
     uint8_t _pin_ss_datalogger;
     String _uuidToCheck;
     String _uuidRead;
@@ -303,6 +307,7 @@ private:
 public:
   String _UUIDCard;
   String _operatorName;
+  uint8_t _operatorlevel; //1= administrador 2= Frentista 3= Motorista
   char _buffer[24];
   Menu();
   void menuPrincipal();
@@ -347,6 +352,20 @@ class Access
   char _buffer[16];
   Access();
   bool accessValidate(MetodeAccesses metode);
+};
+
+class Json{
+  
+  private:
+  
+  public:
+
+    String _payload;
+    String _temp;
+
+    Json();
+    String jsonOperatorMount();
+
 };
 
 #endif 

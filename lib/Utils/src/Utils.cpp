@@ -2,6 +2,7 @@
 #include <Utils.h>
 
 String SENHA_AGS                =       "380130";                             // Senha ROOT, apenas pessoal autorizado da AGS possue
+String jsonPayload              =       "";                             
 const uint8_t _buzzer           =       27;
 const uint8_t _pinDatalogger    =       46;   
 const byte lines = 4;     //NUMERO DE LINHAS DO TECLADO
@@ -35,6 +36,7 @@ Keyboard key;
 DatalLogger sd;
 Som buzzer(_buzzer);
 File fileName;
+Json json;
 
 const uint8_t ledErrado      =       29;
 const uint8_t ledCerto       =       31;
@@ -167,8 +169,8 @@ void DrawScreen::readOperator(ScreenName screen, String name, String cardID){
   }
 }
 
-void DrawScreen::drawMenu(ScreenName screen){
-  _screen = screen;
+void DrawScreen::drawMenu(ScreenName targetScreen){
+  _screen = targetScreen;
 
   switch (_screen)
   {
@@ -279,6 +281,48 @@ void DrawScreen::drawMenu(ScreenName screen){
         display.setFont(u8g_font_unifont);
         display.drawStr( 4, 45, key._buffer);
         display.drawRFrame(1, 31, 126, 18, 5);
+      } while (display.nextPage());
+    break;
+
+    case SCREEN_MENU_CADASTRO_OPERADOR_READ_LEVEL:
+      
+      display.firstPage();
+      do {
+        display.setFont(u8g_font_unifont);
+        display.drawStr( 1, 12, "ESCOLHA O NIVEL");
+        display.drawStr( 2, 12, "ESCOLHA O NIVEL");
+
+        display.setFont(u8g_font_6x10);
+        display.drawStr( 27, 28, "ADMINISTRADOR");
+        display.drawStr( 6, 28, "1");
+        display.drawRFrame(1, 17, 15, 15, 3);
+
+        display.drawStr( 27, 44, "FRENTISTA");
+        display.drawStr( 6, 44, "2");
+        display.drawRFrame(1, 33, 15, 15, 3);
+
+        display.drawStr( 27, 60, "MOTORISTA");
+        display.drawStr( 6, 60, "3");
+        display.drawRFrame(1, 49, 15, 15, 3);
+      } while (display.nextPage());
+    break;
+
+    case SCREEN_PROGRESS:
+        _status  = _status + 10;       
+        Serial.print("contador = ");
+        Serial.println(_status);     
+        if (_status >= 100 ){
+          _status = 0;
+        };
+      display.firstPage();
+      do {
+        _status++;   
+        display.setFont(u8g_font_unifont);
+        display.drawStr( 20, 27, F("PROCESSANDO"));
+        display.drawStr( 21, 27, F("PROCESSANDO"));
+        display.drawFrame(12,40,100,10);
+        display.drawBox(12,40,_status,10);
+        Serial.println(_status);
       } while (display.nextPage());
     break;
   }
@@ -589,6 +633,54 @@ bool DatalLogger::checkOperatorExist(String uuid){
   }
 }
 
+void DatalLogger::WriteOperatorInDatalogger(){
+  AGAIN:
+  Serial.println("entrou na funcao WirteOperator");
+  if (sd.begin(_pinDatalogger) == DATALOGGER_SD_OK){
+    Serial.println(F("SD PASSOU"));
+    }else {
+    Serial.println(F("SD NAO PASSOU"));
+    if(SD.begin(_pinDatalogger)){
+      Serial.println("SD DEU CERTO NA 2");
+    }else{
+      Serial.println(F("SD NAO PASSOU DENOVO"));
+      if (SD.exists("CAD-OPE.txt")){
+        Serial.println(F("SD tá Lendo"));
+        goto NEXT;
+      }else{
+        SD.end();
+        goto AGAIN;
+      }
+    }
+  }
+  NEXT:
+  Serial.println(fileName);
+  fileName.close();
+  Serial.println(fileName);
+  fileName = SD.open("CAD-OPE.txt", FILE_WRITE);
+  Serial.println(fileName);
+  if (fileName) {
+    Serial.println(F("GRAVANDO DADOS NO CARTÃO SD"));
+    fileName.print(sd.getTimestamp());                  // DATA E HORA
+    fileName.print(";");                                // SEPARADOR CONDICIONAL
+    fileName.print(uniqueNumber.getUID());              // NUMERO UNICO DO EQUIPAMENTO
+    fileName.print(";");                                // SEPARADOR CONDICIONAL
+    fileName.print("001");                              // CODIGO DA FUNÇÃO
+    fileName.print(";");                                // SEPARADOR CONDICIONAL
+    fileName.print(menu._UUIDCard);                     // UID TAG RFID
+    fileName.print(";");                                // SEPARADOR CONDICIONAL
+    fileName.print(menu._operatorName);                 // NOME DO OPERADOR
+    fileName.print(";");                                // SEPARADOR CONDICIONAL
+    fileName.println(menu._operatorlevel);              // NIVEL DE PERMISSAO DO OPERADOR
+    fileName.close();
+    delay(500);
+  } else {
+    Serial.println(F("FALHA AO GRAVAR DADOS NO CARTÃO SD"));
+    delay(2000);
+    loop();
+  }
+}
+
 DataLoggerStatus DatalLogger::setSystemTimestamp(){
   if (getDate(__DATE__) && getTime(__TIME__)) 
   {
@@ -636,7 +728,7 @@ String DatalLogger::getTimestamp() {
     timestamp += get2digits(tm.Month); //Mes
     timestamp += "/";
     timestamp += get2digits(tmYearToCalendar(tm.Year)); //Ano
-    timestamp += "_";
+    timestamp += ";";
     timestamp += get2digits(tm.Hour); //Hora
     timestamp += ":";
     timestamp += get2digits(tm.Minute); //Minuto
@@ -934,16 +1026,43 @@ void Menu::menuCadastroOperador(){
     loop();
   }
   screen.drawMenu(SCREEN_MENU_CADASTRO_OPERADOR_READ_NAME);
-  Serial.println("passou aqui - 1");
   _operatorName = key.keyboardGetKeyAlfanumeric(SCREEN_MENU_CADASTRO_OPERADOR_READ_NAME);
-  Serial.println("passou aqui - 2");
+  _operatorName.trim();
   Serial.println("Nome = " + _operatorName);
- //enter operator name
  //enter operator level
+  screen.drawMenu(SCREEN_MENU_CADASTRO_OPERADOR_READ_LEVEL);
+  do {
+    tecla_presionada = keyboard.getKey();  
+  } while (!tecla_presionada);
+  switch (tecla_presionada)
+  {
+    case '1':
+      Serial.println(F("ADMINISTRADOR"));
+      _operatorlevel = 1;
+      break;
+    case '2':
+      Serial.println(F("FRENTISTA"));
+      _operatorlevel = 2;
+      break;
+    case '3':
+      Serial.println(F("MOTORISTA"));
+      _operatorlevel = 3;
+      break;
+    default:
+      loop();
+    break;
+  }
+  Serial.println(_operatorlevel);
+  // gravar novo operador no cartão SD
+  sd.WriteOperatorInDatalogger();
+  // Monta o JSON para enviar para o Broker
+  jsonPayload = json.jsonOperatorMount();
+  Serial.println(jsonPayload);
+  // enviar novo operador por mqtt para broker
+
 }
 
 Access::Access(){
-
 }
 
 bool Access::accessValidate(MetodeAccesses metode){
@@ -1614,4 +1733,66 @@ String Operator::Read(){
     Serial.println(rfidReader.IDValue);
     delay(2000); 
   } while (status != 1);
+}
+
+Json::Json(){
+}
+
+String Json::jsonOperatorMount(){
+  _payload = "";
+  _temp = "";
+  _temp = String(sd.getTimestamp());
+  _temp.remove(10, 9);
+  //_temp.remove(2, 1);
+  //_temp.remove(4, 1);
+
+  _payload = "{";
+  _payload += "\"d\":";
+  _payload += "\"";
+  _payload += String(_temp);
+  _payload += "\"";
+  _payload += ",";
+
+  _temp = "";
+  _temp = String(sd.getTimestamp());
+  _temp.remove(0, 11);
+
+  _payload += "\"h\":";
+  _payload += "\"";
+  _payload += String(_temp);
+  _payload += "\"";
+  _payload += ",";
+
+  _payload += "\"e\":";
+  _payload += "\"";
+  _payload += String(uniqueNumber.getUID());
+  _payload += "\"";
+  _payload += ",";
+
+  _payload += "\"c\":";
+  _payload += "\"";
+  _payload += String("001");
+  _payload += "\"";
+  _payload += ",";
+
+  _payload += "\"t\":";
+  _payload += "\"";
+  _payload += String(menu._UUIDCard);
+  _payload += "\"";
+  _payload += ",";
+
+  _payload += "\"o\":";
+  _payload += "\"";
+  _payload += String(menu._operatorName);
+  _payload += "\"";
+  _payload += ",";
+
+  _payload += "\"n\":";
+  _payload += "\"";
+  _payload += String(menu._operatorlevel);
+  _payload += "\"";
+
+  _payload += "}";
+
+  return _payload;
 }
