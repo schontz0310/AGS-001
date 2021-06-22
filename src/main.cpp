@@ -57,7 +57,6 @@
 // [ ]004  - CADASTRO DE ABASTECIMENTO                                        //////
 ////////////////////////////////////////////////////////////////////////////////////
 
-
 #include <SPI.h>                  // Biblioteca de comunicação SPI
 #include <Keypad.h>               // Biblioteca para controle do teclado matricial 4x4  
 #include <Utils.h>                // Biblioteca com as classes e funções para funcionamento do sistema 
@@ -79,10 +78,10 @@ const uint8_t BOTAO             =       8;                                    //
 
 const String TOPIC              =       "Supply/";                            // TOPICO MQTT para publicação
 
-#define MQTT_SERVER                     "mqtt.internetecoisas.com.br"         //"mqtt://things.ubidots.com"
+#define MQTT_SERVER                     "mqtt.datamills.com.br"         //"mqtt://things.ubidots.com"
 #define MQTT_PORT                       1883                                  // Porta para comunicação com Broker MQTT
-#define USER                            "eliverto.moraes"                     // "USUARIO"
-#define PASS                            "Qe7XA#R36jJs"                        // "SENHA"
+#define USER                            "supply-admin"                     // "USUARIO"
+#define PASS                            "supply@19!"                        // "SENHA"
 
 uint8_t statusCheck             =       0;
 
@@ -96,7 +95,7 @@ Som alert(SOM);
 UID uniqueID;
 DrawScreen visor;
 RFIDReader leitorRfid;
-DatalLogger datalogger;
+DataLogger datalogger;
 ModemGPRS SIM800l;
 MQTTConnection BrokerMQTT;
 Operator Operador;
@@ -111,7 +110,9 @@ String VEICULO_TAG;
 
 void setup() {
 
+
   // Initialize and setup pins
+  
   pinMode(PIN_SS_DATA_LOG, OUTPUT);
   pinMode(SOM, OUTPUT);
   pinMode(LED_VERMELHO, OUTPUT);
@@ -129,6 +130,7 @@ void setup() {
 
   // Initialize LCD monitor
   visor.begin();
+
   // show first screen with logo 
   visor.drawSetup(SCREEN_DRAW_LOGO, 2000, 0, 0);
 
@@ -152,21 +154,24 @@ void setup() {
   // Initialize RTC 
   if (GET_SYSTEM_TIMESTAMP){
     if (datalogger.setSystemTimestamp() == DATALOGGER_TIME_OK){
-    statusCheck = 0;
-    stateCheck[1] = 0;
-    alert.somCerto(LED_VERDE, 50);
+      statusCheck = 0;
+      stateCheck[1] = 0;
+      alert.somCerto(LED_VERDE, 50);
+    }else{
+      statusCheck = 1;
+      stateCheck[1] = 1;
+      alert.somErrado(LED_VERMELHO, 250, 50);
     }
   }else{
     if (datalogger.getDateHour() == DATALOGGER_TIME_OK){
       statusCheck = 0;
       stateCheck[1] = 0;
-    alert.somCerto(LED_VERDE, 50);
+      alert.somCerto(LED_VERDE, 50);
     }else{
       statusCheck = 1;
       stateCheck[1] = 1;
-    alert.somErrado(LED_VERMELHO, 250, 50);
-    }
-    
+      alert.somErrado(LED_VERMELHO, 250, 50);
+    }  
   }
   visor.drawSetup(SCREEN_VERIFY_DATA_LOGGER_RTC, 2000, statusCheck, stateCheck);
 
@@ -181,7 +186,7 @@ void setup() {
     alert.somErrado(LED_VERMELHO, 250, 50);
   }
   visor.drawSetup(SCREEN_VERIFY_RFID, 2000, statusCheck, stateCheck);
-
+  //goto JUMP;
   // Initialize modem GPRS
   if (SIM800l.setup() == MODEM_READY){
     statusCheck = 0;
@@ -195,22 +200,29 @@ void setup() {
   visor.drawSetup(SCREEN_VERIFY_MODEM, 2000, statusCheck, stateCheck);
 
   // Initialize MQTT connection
+  statusCheck = 0;
+  MQTT_AGAIN:
   if (BrokerMQTT.setup(MQTT_SERVER, MQTT_PORT, USER, PASS) == MQTT_READY){
     statusCheck = 0;
     stateCheck[4] = 0;
     alert.somCerto(LED_VERDE, 50);
   }else{
-    statusCheck = 1;
-    stateCheck[4] = 1;
-    alert.somErrado(LED_VERMELHO, 250, 50);
+    if (statusCheck < 2){
+      goto MQTT_AGAIN;
+      statusCheck++;
+    }else{
+      statusCheck = 1;
+      stateCheck[4] = 1;
+      alert.somErrado(LED_VERMELHO, 250, 50);
+    }
   }
   visor.drawSetup(SCREEN_VERIFY_MQTT, 2000, statusCheck, stateCheck);
-
+  JUMP:
   // Check for errors
+  Serial.println("===========================");
   uint8_t errorValue  = 0;
   for (size_t i = 0; i <= 5; i++)
   {
-    Serial.println("===========================");
     Serial.print("== error value = ");
     Serial.println(errorValue);
     Serial.print("== posição = ");
@@ -219,19 +231,16 @@ void setup() {
     Serial.println(stateCheck[i]);
     Serial.print("== errorCode = ");
     Serial.println(errorCode[i]);
-    Serial.println("===========================\n\n") ;
-
     if (stateCheck[i] == 1){
       errorValue = errorValue + errorCode[i];
     }
   }
-  
-  Serial.print(F("Error Code = "));
+  Serial.print(F("Final error Code = "));
   Serial.println(errorValue);
+  Serial.println("===========================\n\n") ;
 }
 
 void loop() {
-
   OPERADOR_REG = "";
   OPERADOR_TAG = "";
   VEICULO_REG = "";

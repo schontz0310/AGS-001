@@ -1,6 +1,12 @@
 
 #include <Utils.h>
 
+
+#define MQTT_SERVER                     "mqtt.datamills.com.br"         //"mqtt://things.ubidots.com"
+#define MQTT_PORT                       1883                                  // Porta para comunicação com Broker MQTT
+#define USER                            "supply-admin"                     // "USUARIO"
+#define PASS                            "supply@19!"                        // "SENHA"
+
 String SENHA_AGS                =       "380130";                             // Senha ROOT, apenas pessoal autorizado da AGS possue
 String jsonPayload              =       "";                             
 const uint8_t _buzzer           =       27;
@@ -16,8 +22,8 @@ char matriz[lines][columns] =
   { '7', '8', '9', 'C'},
   { '*', '0', '#', 'D'},
 };
-byte linesPines[lines] = {49, 47, 45, 43};       //PINOS CONECTADOS AS LINHAS DO TECLADO
-byte columnsPines[columns] = {41, 39, 37, 35}; //PINOS CONECTADOS AS COLUNAS DO TECLADO
+byte linesPines[lines] = {49, 47, 45, 43};        //PINOS CONECTADOS AS LINHAS DO TECLADO
+byte columnsPines[columns] = {41, 39, 37, 35};    //PINOS CONECTADOS AS COLUNAS DO TECLADO
 char tecla_presionada;
 
 U8GLIB_ST7920_128X64_1X display(11, 12, 13);
@@ -33,7 +39,9 @@ RFIDReader rfidReader;
 Menu menu;
 Access access;
 Keyboard key;
-DatalLogger sd;
+DataLogger sd;
+MQTTConnection mqtt;
+ModemGPRS internet;
 Som buzzer(_buzzer);
 File fileName;
 Json json;
@@ -309,8 +317,6 @@ void DrawScreen::drawMenu(ScreenName targetScreen){
 
     case SCREEN_PROGRESS:
         _status  = _status + 10;       
-        Serial.print("contador = ");
-        Serial.println(_status);     
         if (_status >= 100 ){
           _status = 0;
         };
@@ -322,7 +328,20 @@ void DrawScreen::drawMenu(ScreenName targetScreen){
         display.drawStr( 21, 27, F("PROCESSANDO"));
         display.drawFrame(12,40,100,10);
         display.drawBox(12,40,_status,10);
-        Serial.println(_status);
+      } while (display.nextPage());
+    break;
+
+    case SCREEN_ERROR:
+      display.firstPage();
+      do {
+        display.drawXBMP((128 - error_width)/2, 0, error_width, error_height, error);
+      } while (display.nextPage());
+    break;
+
+    case SCREEN_SUCCESS:
+      display.firstPage();
+      do {
+        display.drawXBMP((128 - success_width)/2, 0, success_width, success_height, success);
       } while (display.nextPage());
     break;
   }
@@ -338,7 +357,7 @@ void DrawScreen::drawSetup(ScreenName screen, int interval, uint8_t status, bool
   case SCREEN_DRAW_LOGO:
     display.firstPage();
     do {
-      display.drawXBMP( 0, 0, 128, 64, img_bitmap);
+      display.drawXBMP( 8, 0, 128, 64, img_bitmap);
     } while (display.nextPage());
     delay(_interval);  
   break;
@@ -384,22 +403,18 @@ void DrawScreen::drawSetup(ScreenName screen, int interval, uint8_t status, bool
         display.setFont(u8g_font_6x10);
         display.drawStr( 0, 10, F("DATALOOGER SD  = OK"));
       }
-
       if (_state[0] == 1) {
         display.setFont(u8g_font_6x10);
         display.drawStr( 0, 10, F("DATALOOGER SD  = XX"));
       }
-
       if (_status == 0) {
         display.setFont(u8g_font_6x10);
         display.drawStr( 0, 20, F("DATALOOGER RTC = OK"));
       }
-
       if (_status == 1) {
         display.setFont(u8g_font_6x10);
         display.drawStr( 0, 20, F("DATALOOGER RTC = XX"));
       }
-
     } while (display.nextPage());
     delay(_interval);  
   break;
@@ -582,9 +597,7 @@ bool RFIDReader::getID(){
   }
   _value.toUpperCase();
   IDValue = _value;
-  // trocado pelo software power down
   rfid.PICC_HaltA();
-  //mfrc522.PCD_SoftPowerDown();
   return 1;
 }
 
@@ -592,11 +605,11 @@ tmElements_t tm;
 String timestamp;
 const char *monthNameDatalogger[12] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
 
-DatalLogger::DatalLogger(){
+DataLogger::DataLogger(){
 
 }
 
-DataLoggerStatus DatalLogger::begin(uint8_t pin_ss_datalogger){
+DataLoggerStatus DataLogger::begin(uint8_t pin_ss_datalogger){
   _pin_ss_datalogger = pin_ss_datalogger;
 
   if (SD.begin(_pin_ss_datalogger)) {
@@ -608,7 +621,7 @@ DataLoggerStatus DatalLogger::begin(uint8_t pin_ss_datalogger){
   }  
 }
 
-bool DatalLogger::checkOperatorExist(String uuid){
+bool DataLogger::checkOperatorExist(String uuid){
   _uuidToCheck = uuid;
   fileName.close();
   delay(50);
@@ -616,11 +629,13 @@ bool DatalLogger::checkOperatorExist(String uuid){
   if (fileName) {
     while (fileName.available())
     {
+      screen.drawMenu(SCREEN_PROGRESS);
       _uuidRead = fileName.readStringUntil(13);
       Serial.println(_uuidRead);
       _uuidRead.trim();
       _uuidRead.remove(0,43);
-      _uuidRead.remove(8);
+      int length = _uuidRead.indexOf(";");
+      _uuidRead.remove(length);
       Serial.print(F("Verificação de UUID = "));
       Serial.print(_uuidRead);
       Serial.print (F(" Sistema <---> Nova Tag "));
@@ -633,27 +648,16 @@ bool DatalLogger::checkOperatorExist(String uuid){
   }
 }
 
-void DatalLogger::WriteOperatorInDatalogger(){
-  AGAIN:
+void DataLogger::WriteOperatorInDatalogger(){
   Serial.println("entrou na funcao WirteOperator");
-  if (sd.begin(_pinDatalogger) == DATALOGGER_SD_OK){
-    Serial.println(F("SD PASSOU"));
-    }else {
-    Serial.println(F("SD NAO PASSOU"));
-    if(SD.begin(_pinDatalogger)){
-      Serial.println("SD DEU CERTO NA 2");
-    }else{
-      Serial.println(F("SD NAO PASSOU DENOVO"));
-      if (SD.exists("CAD-OPE.txt")){
-        Serial.println(F("SD tá Lendo"));
-        goto NEXT;
-      }else{
-        SD.end();
-        goto AGAIN;
-      }
+  if (!SD.exists("CAD-OPE.txt")){
+    if(!SD.begin(_pin_ss_datalogger)){
+      screen.drawMenu(SCREEN_ERROR);
+      Serial.println("Erro na abertura do cartao SD, [Utils.cpp - 641]");
+      delay(1500);
+      loop();
     }
   }
-  NEXT:
   Serial.println(fileName);
   fileName.close();
   Serial.println(fileName);
@@ -676,12 +680,41 @@ void DatalLogger::WriteOperatorInDatalogger(){
     delay(500);
   } else {
     Serial.println(F("FALHA AO GRAVAR DADOS NO CARTÃO SD"));
-    delay(2000);
+    screen.drawMenu(SCREEN_ERROR);
+    Serial.println("Erro na abertura do cartao SD, [Utils.cpp - 669]");
+    delay(1500);
     loop();
   }
 }
 
-DataLoggerStatus DatalLogger::setSystemTimestamp(){
+void DataLogger::WriteFailMqttLog(String payload){
+  Serial.println("entrou na funcao WirteOperator");
+  if (!SD.exists("CAD-ERR.txt")){
+    if(!SD.begin(_pin_ss_datalogger)){
+      screen.drawMenu(SCREEN_ERROR);
+      Serial.println("Erro na abertura do cartao SD, [Utils.cpp - 688]");
+      delay(1500);
+      loop();
+    }
+  }
+  Serial.println(fileName);
+  fileName.close();
+  Serial.println(fileName);
+  fileName = SD.open("CAD-ERR.txt", FILE_WRITE);
+  Serial.println(fileName);
+  if (fileName) {
+    Serial.println(F("GRAVANDO DADOS NO CARTÃO SD"));
+    fileName.println(payload);         
+    fileName.close();
+    delay(500);
+  } else {
+    Serial.println(F("FALHA AO GRAVAR DADOS NO CARTÃO SD"));
+    Serial.println("Erro na abertura do cartao SD, [Utils.cpp - 706]");
+    delay(1500);
+  }
+}
+
+DataLoggerStatus DataLogger::setSystemTimestamp(){
   if (getDate(__DATE__) && getTime(__TIME__)) 
   {
     RTC.write(tm);
@@ -692,7 +725,7 @@ DataLoggerStatus DatalLogger::setSystemTimestamp(){
   }
 }
 
-bool DatalLogger::getDate(const char *str) {
+bool DataLogger::getDate(const char *str) {
   
   char Month[12];
   int Day, Year;
@@ -708,7 +741,7 @@ bool DatalLogger::getDate(const char *str) {
   return true;
 }
 
-bool DatalLogger::getTime(const char *str) {
+bool DataLogger::getTime(const char *str) {
   int Hour, Min, Sec;
   if (sscanf(str, "%d:%d:%d", &Hour, &Min, &Sec) != 3) return false;
   tm.Hour = Hour;
@@ -717,7 +750,7 @@ bool DatalLogger::getTime(const char *str) {
   return true;
 }
 
-String DatalLogger::getTimestamp() {
+String DataLogger::getTimestamp() {
   
   timestamp = "-erro-"; //Mensagem em caso de erro na leitura da data/hora
   if (RTC.read(tm)) { //Função para lder hora
@@ -740,7 +773,7 @@ String DatalLogger::getTimestamp() {
   return timestamp;
 }
 
-String DatalLogger::get2digits(int number) {
+String DataLogger::get2digits(int number) {
   String val = "";
   if (number >= 0 && number < 10) {
     val += "0";
@@ -749,7 +782,7 @@ String DatalLogger::get2digits(int number) {
   return val;
 }
 
-DataLoggerStatus DatalLogger::getDateHour(){
+DataLoggerStatus DataLogger::getDateHour(){
   if(RTC.read(tm)){
     return DATALOGGER_TIME_OK;
   }else{
@@ -764,7 +797,7 @@ ModemGPRS::ModemGPRS(){
 ModemGPRSStatus ModemGPRS::setup(){
   Serial.println(F("Setup GSM..."));
   //Inicializamos a serial onde está o modem
-  Serial2.begin(115200);
+  Serial2.begin(9600);
   delay(100);
   //Mostra informação sobre o modem
   AGAIN_GPRS:
@@ -794,6 +827,7 @@ ModemGPRSStatus ModemGPRS::setup(){
   } 
   uint8_t gprs_count = 0;
   if (!modemGSM.gprsConnect("m2mprepago.br", "Arqia", "Arqia")) {
+  // if (!modemGSM.gprsConnect("zap.vivo.com.br", "vivo", "vivo")) {  
     delay(5000);
     Serial.print(F("TENTATIVA = "));
     Serial.println(gprs_count);
@@ -810,6 +844,55 @@ ModemGPRSStatus ModemGPRS::setup(){
   }
 }
 
+ModemGPRSStatus ModemGPRS::reconnect(){
+AGAIN_GPRS:
+  if (!modemGSM.restart())
+  {
+    Serial.println(F("FALHOU REINICIALIZACAO DO MODEM GSM"));
+  }
+  if (!modemGSM.waitForNetwork())
+  {
+    Serial.println(F("FALHA DE CONEXÃO COM A REDE"));
+    delay(7000);
+  } 
+  if (modemGSM. isNetworkConnected ()) {
+    Serial.println(F("CONECTADO A REDE COM SUCESSO"));
+  }else{
+    Serial.println(F("NÃO FOI POSSIVEL CONECTAR A REDE")); 
+  }
+  String imei = modemGSM.getIMEI();
+  Serial.print(F("IMEI:"));
+  Serial.println(imei);
+  int gprs_count = 0;
+  //Conecta à rede gprs (APN, usuário, senha)
+  //if (!modemGSM.gprsConnect("allcom.br", "allcom", "allcom")) {
+    if (!modemGSM.gprsConnect("zap.vivo.com.br", "vivo", "vivo")) {
+  //if (!modemGSM.gprsConnect("gprs.oi.com.br", "oi", "oi")) {
+    delay(10000);
+    Serial.print(F("TENTATIVA = "));
+    Serial.println(gprs_count);
+    Serial.println(F("CONEXÃO DE DADOS FALHOU"));
+    gprs_count++;
+    if (gprs_count <= 2) {
+      goto AGAIN_GPRS;
+    }else{
+      Serial.println(F("IMPOSSIVEL ESTABELECER CONEXÃO DE DADOS"));
+      return;
+    }
+  }else{
+    Serial.println(F("SETUP GSM BEM SUCEDIDO"));
+    delay(1500);
+  }
+  bool res = modemGSM.isGprsConnected();
+  Serial.print(F("GPRS status:"));
+  Serial.println(res);
+  if (res){
+    return MODEM_OK_RESTART;
+  }else{
+    return MODEM_ERROR_RESTART;
+  }
+}
+
 MQTTConnection::MQTTConnection(){
 
 }
@@ -819,7 +902,9 @@ MQTTStatus MQTTConnection::setup(const char * domain, uint16_t port, const char 
   Serial.println(F("Connecting to MQTT Server..."));
   client.setServer(domain, port);
   (uniqueNumber.getUID()).toCharArray(_buffer, 24);
-  if (client.connect("teste", user, password)) {
+  client.connect(_buffer, user, password);
+  client.disconnect();
+  if (client.connect(_buffer, user, password)) {
     return MQTT_READY;
     delay(2000);
   } else {
@@ -832,6 +917,73 @@ MQTTStatus MQTTConnection::setup(const char * domain, uint16_t port, const char 
   }
 }
 
+MQTTStatus MQTTConnection::reconnect(const char * user, const char * password){
+  MQTTStatus result;
+  if(client.state() == 0){
+    Serial.println(F("MQTT CONECTADO 1"));
+    return MQTT_READY;
+  }else{
+    (uniqueNumber.getUID()).toCharArray(_buffer, 24);
+    if(client.connect("teste", user, password)){
+      Serial.println(F("MQTT CONECTADO 2"));
+      delay(2000);
+      return MQTT_READY;
+    }else{
+      result = mqtt.setup(MQTT_SERVER, MQTT_PORT, USER, PASS);
+      if (result == MQTT_READY){
+        return result;
+      }else{
+        client.disconnect();
+        Serial.println(F("MQTT ERROR"));
+        return MQTT_FAILED;
+      }
+    }
+  }
+}
+
+boolean MQTTConnection::send(String topic, String payload){
+  // check if connection is ok
+  bool flag = true;
+  if(!modemGSM.isGprsConnected()){
+    Serial.println(F("Step 1"));
+    flag = false;
+  };
+  if(!modemGSM.isNetworkConnected()){
+    Serial.println(F("Step 2"));
+    flag = false;
+  };
+
+  if(flag == false){
+    Serial.println(F("step 3"));
+    if(internet.reconnect()){
+      flag = true;
+    }else{
+      return false;
+    } 
+  }
+
+
+
+  _payload = payload;
+  _topic = topic;
+  int steps = 0;
+  AGAIN_MQTT:
+  Serial.println(F("Step 5"));
+  mqtt.reconnect(USER, PASS);
+  if (client.publish(_topic.c_str(), _payload.c_str())){
+    return true;
+  }else{
+    if(steps < 2){
+      Serial.print(F("tentativa = "));
+      Serial.println(steps);
+      steps++;
+      goto AGAIN_MQTT;
+    }else{
+      return false;
+    }
+  }
+}
+
 Menu::Menu(){
 }
 
@@ -841,25 +993,22 @@ void Menu::menuPrincipal(){
   do {
     tecla_presionada = keyboard.getKey();
   }
-  while (!tecla_presionada);   //the program will not go further while you are not getting a successful read
+  while (!tecla_presionada);   
 
-  switch (tecla_presionada)        //Switch-case de acuerdo a la tecla presionada
+  switch (tecla_presionada)       
   {
     case '1':
       menu.menuCadastro();
       Serial.println(F("BOTAO 1"));
       break;
-
     case '2':
       //Menu_Configuracoes();
       Serial.println(F("BOTAO 2"));
       break;
-
     case '3':
       //Menu_Entradas();
       Serial.println(F("BOTAO 3"));
       break;
-
     case '4':
     case '5':
     case '6':
@@ -883,26 +1032,22 @@ void Menu::menuCadastro(){
   Serial.println(F("ENTROU MENU CADASTRO"));
   screen.drawMenu(SCREEN_MENU_CADASTRO);
   do {
-    tecla_presionada = keyboard.getKey();   // sets successRead to 1 when we get read from reader otherwise 0
+    tecla_presionada = keyboard.getKey();
   } while (!tecla_presionada);
-
   switch (tecla_presionada)
   {
     case '1':
       menu.menuAccesses(SCREEN_MENU_CADASTRO_OPERADOR_CHOICE);
       Serial.println(F("BOTAO 1 - CADASTRO DE OPERADOR"));
       break;
-
     case '2':
       menu.menuAccesses(SCREEN_MENU_CADASTRO_VEHICLE);
       Serial.println(F("BOTAO 2 - CADASTRO DE VEICULO"));
       break;
-
     case '3':
       menu.menuAccesses(SCREEN_MENU_CADASTRO_PERMISSION);
       Serial.println(F("BOTAO 3 - CADASTRO DE PERMISSAO"));
       break;
-
     case '4':
     case '5':
     case '6':
@@ -924,10 +1069,10 @@ void Menu::menuCadastro(){
 
 void Menu::menuAccesses(ScreenName nextScreen){
   _nextScreen = nextScreen;
-  Serial.println(F("ENTROU MENU CADASTRO OPERADOR"));
+  Serial.println(F("ENTROU NO MENU DE AUTORIZACAO DE ACESSO"));
   screen.drawMenu(SCREEN_ACCCESSES);
   do {
-    tecla_presionada = keyboard.getKey();   // sets successRead to 1 when we get read from reader otherwise 0
+    tecla_presionada = keyboard.getKey();
   } while (!tecla_presionada);
 
   switch (tecla_presionada)
@@ -951,52 +1096,65 @@ void Menu::menuAccesses(ScreenName nextScreen){
 void Menu::menuAccesses(MetodeAccesses metode, ScreenName nextScreen){
   _nextScreen = nextScreen;
   _metode = metode;
+  _flag = false;
 
   switch (_metode)
   {
     case CARD:
       screen.drawMenu(SCREEN_ACCCESSES_CARD);
-    break;
+      if(access.accessValidate(_metode)){
+        Serial.println("Senha valida");
+        _flag = true; 
+      }else{
+        Serial.println("Acesso negado");
+        _flag = false;
+      };
+      break;
     case PASSWORD:
       memset(access._buffer, 0, sizeof(access._buffer));
       screen.drawMenu(SCREEN_ACCCESSES_PASSWORD);
       if(access.accessValidate(_metode)){
         Serial.println("Senha valida");
-        switch (_nextScreen)
-        {
-        case SCREEN_MENU_CADASTRO_OPERADOR_CHOICE:
-            screen.drawMenu(_nextScreen);
-            do {
-              tecla_presionada = keyboard.getKey();
-            } while (!tecla_presionada);
-            Serial.print("Tecla pressionada = ");
-            Serial.println(tecla_presionada);
-            switch (tecla_presionada)
-            {
-              case '1':
-                menu.menuCadastroOperador();
-                break;
-              case '2':
-                break;
-              default:
-                Serial.println(F("CANCELAR"));
-                loop();
-                break;
-            }
-          break;
-        
-        default:
-            loop();
-          break;
-        }
+        _flag = true;        
       }else{
-        Serial.println("Nao validou");
+        Serial.println("Acesso negado");
+        _flag = false;
       }
-    break;
+      break;
     default:
       Serial.println(F("CANCELAR"));
-      loop();
-    break;
+      loop();    
+      break;
+  }
+  Serial.println(F("teste"));
+  if (_flag == true)
+  {  
+    switch (_nextScreen)
+    {
+      case SCREEN_MENU_CADASTRO_OPERADOR_CHOICE:
+        screen.drawMenu(_nextScreen);
+        do {
+          tecla_presionada = keyboard.getKey();
+        } while (!tecla_presionada);
+        Serial.print("Tecla pressionada = ");
+        Serial.println(tecla_presionada);
+        switch (tecla_presionada)
+        {
+          case '1':
+            menu.menuCadastroOperador();
+            break;
+          case '2':
+            break;
+          default:
+            Serial.println(F("CANCELAR"));
+            loop();
+            break;
+        }
+        break;
+      default:
+        loop();
+        break;
+    }
   }
 }
 
@@ -1014,18 +1172,24 @@ void Menu::menuCadastroOperador(){
   _UUIDCard = rfidReader.IDValue;
   _UUIDCard.toCharArray(_buffer, 24);
   screen.drawMenu(SCREEN_MENU_CADASTRO_OPERADOR_READ_CARD);
-  delay(2000);
   memset(_buffer, 0, sizeof(_buffer));
+  delay(1200);
  //check if card exist
+  screen.drawMenu(SCREEN_PROGRESS);
   if (!sd.begin(_pinDatalogger)){
     buzzer.somErrado(ledErrado, 250, 50);
+    screen.drawMenu(SCREEN_ERROR);
+    Serial.println("Erro no sistema para gravar informacoes");
+    delay(1500);
     loop();
   }
   if(sd.checkOperatorExist(_UUIDCard)){
     buzzer.somErrado(ledErrado, 250, 50);
+    screen.drawMenu(SCREEN_ERROR);
+    Serial.println("Cartao com cadastro existente");
+    delay(1500);
     loop();
   }
-  screen.drawMenu(SCREEN_MENU_CADASTRO_OPERADOR_READ_NAME);
   _operatorName = key.keyboardGetKeyAlfanumeric(SCREEN_MENU_CADASTRO_OPERADOR_READ_NAME);
   _operatorName.trim();
   Serial.println("Nome = " + _operatorName);
@@ -1054,12 +1218,29 @@ void Menu::menuCadastroOperador(){
   }
   Serial.println(_operatorlevel);
   // gravar novo operador no cartão SD
+  screen.drawMenu(SCREEN_PROGRESS);
   sd.WriteOperatorInDatalogger();
   // Monta o JSON para enviar para o Broker
+    screen.drawMenu(SCREEN_PROGRESS);
   jsonPayload = json.jsonOperatorMount();
   Serial.println(jsonPayload);
   // enviar novo operador por mqtt para broker
-
+    screen.drawMenu(SCREEN_PROGRESS);
+  if(mqtt.send(TOPIC_CREATE_OPERATOR, jsonPayload)){
+    Serial.println("Eviou MQTT");
+    screen.drawMenu(SCREEN_SUCCESS);
+    buzzer.somCerto(ledCerto, 50);
+    delay(1500);
+    loop();
+  }else{
+    sd.WriteFailMqttLog(jsonPayload);
+    Serial.println("Erro MQTT final");
+    screen.drawMenu(SCREEN_SUCCESS);
+    buzzer.somCerto(ledCerto, 50);
+    delay(1500);
+    loop();
+  }
+  delay(5000);
 }
 
 Access::Access(){
@@ -1220,8 +1401,12 @@ char Keyboard::keyboardGetKeyNumeric(){
 
 String Keyboard::keyboardGetKeyAlfanumeric(ScreenName targetScreen){
   _offset = 250;
-  memset(_buffer, 0, sizeof(_buffer));
+    memset(_buffer, 0, sizeof(_buffer) -1);
+    _cursorPossition = 0;
   _screen = targetScreen;
+  screen.drawMenu(targetScreen);
+  _timesPressed = 0;
+  _counter = 0;
   _elapsedTime = millis();
   do{
     _pressedKey = keyboard.getKey();
@@ -1330,7 +1515,7 @@ String Keyboard::keyboardGetKeyAlfanumeric(ScreenName targetScreen){
         if (_timesPressed == 1)
         {
           memset(_buffer, 0, sizeof(_buffer));
-          _cursorPossition = -1;
+          _cursorPossition = 0;
           screen.drawMenu(targetScreen); 
         }
         break;
@@ -1716,8 +1901,7 @@ Operator::Operator(){
 }
 
 String Operator::Read(){
-
-  Serial.println(F("==== FUNCAO OPERADOR ========================================="));
+  Serial.println(F("==== FUNCAO OPERADOR =========================================="));
   do {
     screen.readOperator(SCREEN_OPERATOR_READ, "", "");
     rfid.PCD_Init(SS_SDA_PIN, RST_PIN);
@@ -1731,6 +1915,7 @@ String Operator::Read(){
       }
     } while (!successRead);
     Serial.println(rfidReader.IDValue);
+
     delay(2000); 
   } while (status != 1);
 }

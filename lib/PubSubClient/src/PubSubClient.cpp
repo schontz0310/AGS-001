@@ -122,8 +122,6 @@ boolean PubSubClient::connect(const char *id, const char *user, const char *pass
         int result = 0;
 
         if (domain != NULL) {
-            Serial.print('dominio = ');
-            Serial.println(this->domain);
             result = _client->connect(this->domain, this->port);
         } else {
             result = _client->connect(this->ip, this->port);
@@ -630,12 +628,8 @@ PubSubClient& PubSubClient::setServer(IPAddress ip, uint16_t port) {
 }
 
 PubSubClient& PubSubClient::setServer(const char* domain, uint16_t port) {
-    Serial.println(domain);
-    Serial.println(port);
     this->domain = NULL;
-    Serial.println(this->domain);
     this->domain = domain;
-    Serial.println(this->domain);
     this->port = port;
     return *this;
 }
