@@ -260,7 +260,9 @@ enum ScreenName
   SCREEN_MENU_CADASTRO_OPERADOR_READ_CARD,
   SCREEN_MENU_CADASTRO_OPERADOR_READ_NAME,
   SCREEN_MENU_CADASTRO_OPERADOR_READ_LEVEL,
-  SCREEN_MENU_CADASTRO_VEHICLE,
+  SCREEN_MENU_CADASTRO_VEHICLE_CHOICE,
+  SCREEN_MENU_CADASTRO_VEHICLE_READ_NAME,
+  SCREEN_MENU_CADASTRO_VEHICLE_READ_LEVEL,
   SCREEN_MENU_CADASTRO_PERMISSION,
   // ACCESSES SCREEN
   SCREEN_ACCCESSES,
@@ -268,6 +270,8 @@ enum ScreenName
   SCREEN_ACCCESSES_CARD,
   SCREEN_ACCCESSES_PASSWORD,
 };
+
+
 
 class DrawScreen 
 {
@@ -324,7 +328,9 @@ class DataLogger
     DataLoggerStatus setSystemTimestamp();
     DataLoggerStatus getDateHour();
     bool checkOperatorExist(String uuid);
+    bool checkVehicleExist(String uuid);
     void WriteOperatorInDatalogger();
+    void WriteVehicleInDatalogger();
     void WriteFailMqttLog(String payload);
     String getTimestamp();
 
@@ -362,7 +368,7 @@ enum MQTTStatus{
   MQTT_SEND,
 };
 
-const String TOPIC_CREATE_OPERATOR = "create_operator/";
+const String TOPIC_REGISTER = "registers/";
 
 class MQTTConnection
 {
@@ -403,6 +409,11 @@ enum MetodeAccesses{
   PASSWORD,
 };
 
+enum VehicleFuel{
+  DIESEL_S10,
+  DIESEL_S500,
+};
+
 class Menu
 {
 private:
@@ -414,11 +425,14 @@ public:
   String _UUIDCard;
   String _operatorName;
   uint8_t _operatorlevel; //1= administrador 2= Frentista 3= Motorista
+  String _vehicleName;
+  VehicleFuel _vehicleFuel;
   char _buffer[24];
   Menu();
   void menuPrincipal();
   void menuCadastro();
   void menuCadastroOperador();
+  void menuCadastroVeiculo();
   void menuAccesses(ScreenName nextScreen);
   void menuAccesses(MetodeAccesses metode, ScreenName nextScreen);
 };
@@ -471,6 +485,7 @@ class Json{
 
     Json();
     String jsonOperatorMount();
+    String jsonVehicleMount();
 
 };
 
