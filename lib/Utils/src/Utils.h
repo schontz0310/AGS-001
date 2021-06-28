@@ -261,9 +261,10 @@ enum ScreenName
   SCREEN_MENU_CADASTRO_OPERADOR_READ_NAME,
   SCREEN_MENU_CADASTRO_OPERADOR_READ_LEVEL,
   SCREEN_MENU_CADASTRO_VEHICLE_CHOICE,
+  SCREEN_MENU_CADASTRO_VEHICLE_READ_CARD,
   SCREEN_MENU_CADASTRO_VEHICLE_READ_NAME,
   SCREEN_MENU_CADASTRO_VEHICLE_READ_LEVEL,
-  SCREEN_MENU_CADASTRO_PERMISSION,
+  SCREEN_MENU_CADASTRO_PERMISSION_CHOICE,
   // ACCESSES SCREEN
   SCREEN_ACCCESSES,
   SCREEN_ACCCESSES_CHOICE,
@@ -328,9 +329,12 @@ class DataLogger
     DataLoggerStatus setSystemTimestamp();
     DataLoggerStatus getDateHour();
     bool checkOperatorExist(String uuid);
+    bool checkOperatorIsAdmin(String uuid);
+    String getOperator(String uuid);
     bool checkVehicleExist(String uuid);
     void WriteOperatorInDatalogger();
     void WriteVehicleInDatalogger();
+    void WritePermissionInDatalogger();
     void WriteFailMqttLog(String payload);
     String getTimestamp();
 
@@ -342,6 +346,8 @@ class DataLogger
     String _uuidToCheck;
     String _uuidRead;
     char _readCharacther;
+    String _operatorLevel;
+    String _operatorName;
 };
 
 enum ModemGPRSStatus{
@@ -389,14 +395,9 @@ class MQTTConnection
 class Operator
 {
   private:
-    String usuario = "";
-    String nome = "";
-    String comp = "";
-    byte c1 = 0;
-    byte c3 = 0;
     byte status = 0;
-    String ope = "";
     bool successRead;
+    String _operator;
   public:
     Operator();
     String Read();
@@ -423,6 +424,7 @@ private:
   bool _flag;
 public:
   String _UUIDCard;
+  String _UUIDPermission;
   String _operatorName;
   uint8_t _operatorlevel; //1= administrador 2= Frentista 3= Motorista
   String _vehicleName;
@@ -433,6 +435,7 @@ public:
   void menuCadastro();
   void menuCadastroOperador();
   void menuCadastroVeiculo();
+  void permissionRegistrationMenu();
   void menuAccesses(ScreenName nextScreen);
   void menuAccesses(MetodeAccesses metode, ScreenName nextScreen);
 };
@@ -486,7 +489,7 @@ class Json{
     Json();
     String jsonOperatorMount();
     String jsonVehicleMount();
-
+    String jsonPermissionMount();
 };
 
 #endif 
