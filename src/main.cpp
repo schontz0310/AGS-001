@@ -102,8 +102,9 @@ Operator Operador;
 
 // VARIAVEIS DO SISTEMA //
 
-String OPERADOR_REG;
-String OPERADOR_TAG;
+String OPERADOR_REGISTER;
+String OPERADOR_NAME;
+String OPERADOR_PERMISSION;
 String VEICULO_REG;
 String VEICULO_TAG;
 
@@ -241,12 +242,20 @@ void setup() {
 }
 
 void loop() {
-  OPERADOR_REG = "";
-  OPERADOR_TAG = "";
+  OPERADOR_REGISTER = "";
+  OPERADOR_NAME = "";
+  OPERADOR_PERMISSION = "";
   VEICULO_REG = "";
   VEICULO_TAG = "";
   Serial.println(F("==============================================================="));
   Serial.println(F("====================== INICIO DO SISTEMA ======================"));
   Serial.println(F("==============================================================="));
-  Operador.Read();
+  OPERADOR_REGISTER = Operador.Read();
+  OPERADOR_NAME = OPERADOR_REGISTER.substring(OPERADOR_REGISTER.indexOf("#") + 1, OPERADOR_REGISTER.lastIndexOf("#"));
+  OPERADOR_PERMISSION = OPERADOR_REGISTER.substring(OPERADOR_REGISTER.lastIndexOf("#") + 1);
+  OPERADOR_REGISTER = OPERADOR_REGISTER.substring(0, OPERADOR_REGISTER.indexOf("#"));
+  Serial.println(OPERADOR_NAME);
+  Serial.println(OPERADOR_PERMISSION);
+  Serial.println(OPERADOR_REGISTER);
+  delay(10000);
 }

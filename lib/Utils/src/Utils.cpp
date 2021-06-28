@@ -270,8 +270,8 @@ void DrawScreen::drawMenu(ScreenName targetScreen){
       display.firstPage();
       do {
         display.setFont(u8g_font_6x10);
-        display.drawStr( 22, 15, "  APROXIME O  ");
-        display.drawStr( 22, 25, "    CARTAO    ");
+        display.drawStr( 22, 15, "APROXIME A TAG");
+        display.drawStr( 22, 25, " DO  OPERADOR ");
         display.drawStr( 3, 60, "APERTE '*' PARA CANCELAR");
         display.setFont(u8g_font_unifont);
         display.drawStr( 4, 45, menu._buffer);
@@ -330,6 +330,18 @@ void DrawScreen::drawMenu(ScreenName targetScreen){
         display.drawRFrame(1, 33, 15, 15, 3);
       } while (display.nextPage());  
     break;
+    case SCREEN_MENU_CADASTRO_VEHICLE_READ_CARD:
+      display.firstPage();
+      do {
+        display.setFont(u8g_font_6x10);
+        display.drawStr( 22, 15, "APROXIME A TAG");
+        display.drawStr( 22, 25, " DO   VEICULO ");
+        display.drawStr( 3, 60, "APERTE '*' PARA CANCELAR");
+        display.setFont(u8g_font_unifont);
+        display.drawStr( 4, 45, menu._buffer);
+        display.drawRFrame(1, 31, 126, 18, 5);
+      } while (display.nextPage());  
+    break;
     case SCREEN_MENU_CADASTRO_VEHICLE_READ_NAME:
       
       display.firstPage();
@@ -362,7 +374,21 @@ void DrawScreen::drawMenu(ScreenName targetScreen){
         display.drawRFrame(1, 49, 15, 15, 3);
       } while (display.nextPage());
     break;
-
+    case SCREEN_MENU_CADASTRO_PERMISSION_CHOICE:
+      display.firstPage();
+      do {
+        display.setFont(u8g_font_unifont);
+        display.drawStr( 1, 12, "ESCOLHA A OPCAO");
+        display.drawStr( 2, 12, "ESCOLHA A OPCAO");
+        display.setFont(u8g_font_6x10);
+        display.drawStr( 27, 28, "INCLUIR PERMISSAO");
+        display.drawStr( 6, 28, "1");
+        display.drawRFrame(1, 17, 15, 15, 3);
+        display.drawStr( 27, 44, "EXCLUIR PERMISSAO");
+        display.drawStr( 6, 44, "2");
+        display.drawRFrame(1, 33, 15, 15, 3);
+      } while (display.nextPage());  
+    break;
     case SCREEN_PROGRESS:
         _status  = _status + 10;       
         if (_status >= 100 ){
@@ -696,6 +722,68 @@ bool DataLogger::checkOperatorExist(String uuid){
   }
 }
 
+bool DataLogger::checkOperatorIsAdmin(String uuid){
+  _uuidToCheck = uuid;
+  fileName.close();
+  delay(50);
+  fileName = SD.open("CAD-OPE.txt");
+  if (fileName) {
+    while (fileName.available())
+    {
+      screen.drawMenu(SCREEN_PROGRESS);
+      _uuidRead = fileName.readStringUntil(13);
+      _operatorLevel = _uuidRead.substring(_uuidRead.lastIndexOf(";") + 1);
+      Serial.println(_uuidRead);
+      _uuidRead.trim();
+      _uuidRead.remove(0,43);
+      int length = _uuidRead.indexOf(";");
+      _uuidRead.remove(length);
+      Serial.print(F("Verificação de UUID = "));
+      Serial.print(_uuidRead);
+      Serial.print (F(" Sistema <---> Nova Tag "));
+      Serial.println (_uuidToCheck);
+      if (_uuidToCheck == _uuidRead){
+        if(_operatorLevel == "1"){
+          return true;
+        }else{
+          return false;
+        }
+      }
+    }
+    return false;
+  }
+}
+
+String DataLogger::getOperator(String uuid){
+  _uuidToCheck = uuid;
+  fileName.close();
+  delay(50);
+  fileName = SD.open("CAD-OPE.txt");
+  if (fileName) {
+    while (fileName.available())
+    {
+      screen.drawMenu(SCREEN_PROGRESS);
+      _uuidRead = fileName.readStringUntil(13);
+      _operatorLevel = _uuidRead.substring(_uuidRead.lastIndexOf(";") + 1);
+      _uuidRead.remove(_uuidRead.lastIndexOf(";"));
+      _operatorName = _uuidRead.substring(_uuidRead.lastIndexOf(";") + 1);
+      Serial.println(_uuidRead);
+      _uuidRead.trim();
+      _uuidRead.remove(0,43);
+      int length = _uuidRead.indexOf(";");
+      _uuidRead.remove(length);
+      Serial.print(F("Verificação de UUID = "));
+      Serial.print(_uuidRead);
+      Serial.print (F(" Sistema <---> Nova Tag "));
+      Serial.println (_uuidToCheck);
+      if (_uuidToCheck == _uuidRead){
+        return _uuidRead + "#" + _operatorName + "#" + _operatorLevel;
+      }
+    }
+    return "NO_OPERATOR";
+  }
+}
+
 bool DataLogger::checkVehicleExist(String uuid){
   _uuidToCheck = uuid;
   fileName.close();
@@ -806,6 +894,46 @@ void DataLogger::WriteVehicleInDatalogger(){
     Serial.println(F("FALHA AO GRAVAR DADOS NO CARTÃO SD"));
     screen.drawMenu(SCREEN_ERROR);
     Serial.println("Erro na abertura do cartao SD, [Utils.cpp - 789]");
+    delay(1500);
+    loop();
+  }
+}
+
+void DataLogger::WritePermissionInDatalogger(){
+  Serial.println("entrou na funcao WritePermission");
+  if (!SD.exists("CAD-PER.txt")){
+    Serial.println("tentou criar arquivo");
+    SD.open("CAD-PER.txt", FILE_WRITE);
+  } 
+  if (!SD.exists("CAD-PER.txt")){
+    Serial.println("cria;áo do arquivo deu errado");
+    if(!SD.begin(_pin_ss_datalogger)){
+      screen.drawMenu(SCREEN_ERROR);
+      Serial.println("Erro na abertura do cartao SD, [Utils.cpp - 882]");
+      delay(1500);
+      loop();
+    }
+  }
+  Serial.println(fileName);
+  fileName.close();
+  Serial.println(fileName);
+  fileName = SD.open("CAD-PER.txt", FILE_WRITE);
+  Serial.println(fileName);
+  if (fileName) {
+    Serial.println(F("GRAVANDO DADOS NO CARTÃO SD"));
+    fileName.print(sd.getTimestamp());                  // DATA E HORA
+    fileName.print(";");                                // SEPARADOR CONDICIONAL
+    fileName.print(uniqueNumber.getUID());              // NUMERO UNICO DO EQUIPAMENTO
+    fileName.print(";");                                // SEPARADOR CONDICIONAL
+    fileName.print("003");                              // CODIGO DA FUNÇÃO
+    fileName.print(";");                                // SEPARADOR CONDICIONAL
+    fileName.println(menu._UUIDPermission);             // UID TAG RFID
+    fileName.close();
+    delay(500);
+  } else {
+    Serial.println(F("FALHA AO GRAVAR DADOS NO CARTÃO SD"));
+    screen.drawMenu(SCREEN_ERROR);
+    Serial.println("Erro na abertura do cartao SD, [Utils.cpp - 892]");
     delay(1500);
     loop();
   }
@@ -1169,7 +1297,7 @@ void Menu::menuCadastro(){
       Serial.println(F("BOTAO 2 - CADASTRO DE VEICULO"));
       break;
     case '3':
-      menu.menuAccesses(SCREEN_MENU_CADASTRO_PERMISSION);
+      menu.menuAccesses(SCREEN_MENU_CADASTRO_PERMISSION_CHOICE);
       Serial.println(F("BOTAO 3 - CADASTRO DE PERMISSAO"));
       break;
     case '4':
@@ -1297,7 +1425,27 @@ void Menu::menuAccesses(MetodeAccesses metode, ScreenName nextScreen){
             break;
         }
         break;
-      
+      case SCREEN_MENU_CADASTRO_PERMISSION_CHOICE:
+        screen.drawMenu(_nextScreen);
+        do {
+          tecla_presionada = keyboard.getKey();
+        } while (!tecla_presionada);
+        Serial.print("Tecla pressionada = ");
+        Serial.println(tecla_presionada);
+        switch (tecla_presionada)
+        {
+          case '1':
+            menu.permissionRegistrationMenu();
+            break;
+          case '2':
+            //[ ] implement metode to delete veichle
+            break;
+          default:
+            Serial.println(F("CANCELAR"));
+            loop();
+            break;
+        }
+        break;
       default:
         loop();
         break;
@@ -1392,7 +1540,7 @@ void Menu::menuCadastroOperador(){
 
 void Menu::menuCadastroVeiculo(){
   memset(_buffer, 0, sizeof(_buffer));  
-  screen.drawMenu(SCREEN_MENU_CADASTRO_OPERADOR_READ_CARD);
+  screen.drawMenu(SCREEN_MENU_CADASTRO_VEHICLE_READ_CARD);
   do {
     _successRead =  rfidReader.getID();
     tecla_presionada = keyboard.getKey();
@@ -1403,7 +1551,7 @@ void Menu::menuCadastroVeiculo(){
   } while (!_successRead);
   _UUIDCard = rfidReader.IDValue;
   _UUIDCard.toCharArray(_buffer, 24);
-  screen.drawMenu(SCREEN_MENU_CADASTRO_OPERADOR_READ_CARD);
+  screen.drawMenu(SCREEN_MENU_CADASTRO_VEHICLE_READ_CARD);
   memset(_buffer, 0, sizeof(_buffer));
   delay(1200);
  //check if card exist
@@ -1450,6 +1598,105 @@ void Menu::menuCadastroVeiculo(){
   // Monta o JSON para enviar para o Broker
   screen.drawMenu(SCREEN_PROGRESS);
   jsonPayload = json.jsonVehicleMount();
+  Serial.println(jsonPayload);
+  // enviar novo operador por mqtt para broker
+    screen.drawMenu(SCREEN_PROGRESS);
+  if(mqtt.send(TOPIC_REGISTER, jsonPayload)){
+    Serial.println("Eviou MQTT");
+    screen.drawMenu(SCREEN_SUCCESS);
+    buzzer.somCerto(ledCerto, 50);
+    delay(1500);
+    loop();
+  }else{
+    sd.WriteFailMqttLog(jsonPayload);
+    Serial.println("Erro MQTT final");
+    screen.drawMenu(SCREEN_SUCCESS);
+    buzzer.somCerto(ledCerto, 50);
+    delay(1500);
+    loop();
+  }
+  delay(5000);
+}
+
+void Menu::permissionRegistrationMenu(){
+  memset(_buffer, 0, sizeof(_buffer));  
+  screen.drawMenu(SCREEN_MENU_CADASTRO_OPERADOR_READ_CARD);
+  do {
+    _successRead =  rfidReader.getID();
+    tecla_presionada = keyboard.getKey();
+    if ( tecla_presionada == '*') {
+      Serial.println(F("CANCELADO"));
+      loop();
+    }
+  } while (!_successRead);
+  _UUIDCard = rfidReader.IDValue;
+  _UUIDCard.toCharArray(_buffer, 24);
+  screen.drawMenu(SCREEN_MENU_CADASTRO_OPERADOR_READ_CARD);
+  memset(_buffer, 0, sizeof(_buffer));
+  delay(1200);
+ //check if card exist
+  screen.drawMenu(SCREEN_PROGRESS);
+  if (!sd.begin(_pinDatalogger)){
+    buzzer.somErrado(ledErrado, 250, 50);
+    screen.drawMenu(SCREEN_ERROR);
+    Serial.println("Erro no sistema para ler informacoes");
+    delay(1500);
+    loop();
+  }
+  if(!sd.checkOperatorExist(_UUIDCard)){
+    buzzer.somErrado(ledErrado, 250, 50);
+    screen.drawMenu(SCREEN_ERROR);
+    Serial.println("Cartao sem cadastro existente");
+    delay(1500);
+    loop();
+  }
+  if(sd.checkOperatorIsAdmin(_UUIDCard)){
+    buzzer.somErrado(ledErrado, 250, 50);
+    screen.drawMenu(SCREEN_ERROR);
+    Serial.println("Administrador");
+    delay(1500);
+    loop();
+  }
+
+  _UUIDPermission = _UUIDCard;
+
+  memset(_buffer, 0, sizeof(_buffer));  
+  screen.drawMenu(SCREEN_MENU_CADASTRO_VEHICLE_READ_CARD);
+  do {
+    _successRead =  rfidReader.getID();
+    tecla_presionada = keyboard.getKey();
+    if ( tecla_presionada == '*') {
+      Serial.println(F("CANCELADO"));
+      loop();
+    }
+  } while (!_successRead);
+  _UUIDCard = rfidReader.IDValue;
+  _UUIDCard.toCharArray(_buffer, 24);
+  screen.drawMenu(SCREEN_MENU_CADASTRO_VEHICLE_READ_CARD);
+  memset(_buffer, 0, sizeof(_buffer));
+  delay(1200);
+  screen.drawMenu(SCREEN_PROGRESS);
+  if (!sd.begin(_pinDatalogger)){
+    buzzer.somErrado(ledErrado, 250, 50);
+    screen.drawMenu(SCREEN_ERROR);
+    Serial.println("Erro no sistema para ler informacoes");
+    delay(1500);
+    loop();
+  }
+  if(!sd.checkVehicleExist(_UUIDCard)){
+    buzzer.somErrado(ledErrado, 250, 50);
+    screen.drawMenu(SCREEN_ERROR);
+    Serial.println("Cartao sem cadastro existente");
+    delay(1500);
+    loop();
+  }
+  _UUIDPermission.concat(_UUIDCard);
+  Serial.println(_UUIDPermission);
+
+  sd.WritePermissionInDatalogger();
+  // Monta o JSON para enviar para o Broker
+  screen.drawMenu(SCREEN_PROGRESS);
+  jsonPayload = json.jsonPermissionMount();
   Serial.println(jsonPayload);
   // enviar novo operador por mqtt para broker
     screen.drawMenu(SCREEN_PROGRESS);
@@ -2129,6 +2376,7 @@ Operator::Operator(){
 
 String Operator::Read(){
   Serial.println(F("==== FUNCAO OPERADOR =========================================="));
+  _operator = "";
   do {
     screen.readOperator(SCREEN_OPERATOR_READ, "", "");
     rfid.PCD_Init(SS_SDA_PIN, RST_PIN);
@@ -2142,8 +2390,23 @@ String Operator::Read(){
       }
     } while (!successRead);
     Serial.println(rfidReader.IDValue);
-
-    delay(2000); 
+    screen.readOperator(SCREEN_OPERATOR_SEARCH, "", rfidReader.IDValue);
+    _operator = sd.getOperator(rfidReader.IDValue);
+    Serial.println(_operator);
+    if(_operator != "NO_OPERATOR"){
+    screen.readOperator(SCREEN_OPERATOR_FOUND,
+    _operator.substring(_operator.indexOf("#") + 1, _operator.lastIndexOf("#")), 
+    rfidReader.IDValue);
+    buzzer.somCerto(ledCerto, 50);
+    return _operator;
+    }else{
+      screen.readOperator(SCREEN_OPERATOR_NOT_FOUND, "", rfidReader.IDValue);
+      screen.drawMenu(SCREEN_ERROR);
+      buzzer.somErrado(ledErrado, 250, 50);
+      delay(1500);
+      loop();
+    }
+    delay(100);
   } while (status != 1);
 }
 
@@ -2261,6 +2524,53 @@ String Json::jsonVehicleMount(){
   _payload += "\"f\":";
   _payload += "\"";
   _payload += String(menu._vehicleFuel);
+  _payload += "\"";
+
+  _payload += "}";
+
+  return _payload;
+}
+
+String Json::jsonPermissionMount(){
+  _payload = "";
+  _temp = "";
+  _temp = String(sd.getTimestamp());
+  _temp.remove(10, 9);
+  //_temp.remove(2, 1);
+  //_temp.remove(4, 1);
+
+  _payload = "{";
+  _payload += "\"d\":";
+  _payload += "\"";
+  _payload += String(_temp);
+  _payload += "\"";
+  _payload += ",";
+
+  _temp = "";
+  _temp = String(sd.getTimestamp());
+  _temp.remove(0, 11);
+
+  _payload += "\"h\":";
+  _payload += "\"";
+  _payload += String(_temp);
+  _payload += "\"";
+  _payload += ",";
+
+  _payload += "\"e\":";
+  _payload += "\"";
+  _payload += String(uniqueNumber.getUID());
+  _payload += "\"";
+  _payload += ",";
+
+  _payload += "\"c\":";
+  _payload += "\"";
+  _payload += String("003");
+  _payload += "\"";
+  _payload += ",";
+
+  _payload += "\"p\":";
+  _payload += "\"";
+  _payload += String(menu._UUIDPermission);
   _payload += "\"";
 
   _payload += "}";
