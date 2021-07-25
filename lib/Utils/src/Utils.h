@@ -201,6 +201,10 @@ const uint8_t img_bitmap[] U8G_PROGMEM =
 
 };
 
+enum Fuel{
+  S500,
+  S10,
+};
 
 enum statusSound 
 {
@@ -265,6 +269,8 @@ enum ScreenName
   SCREEN_MENU_CADASTRO_VEHICLE_READ_NAME,
   SCREEN_MENU_CADASTRO_VEHICLE_READ_LEVEL,
   SCREEN_MENU_CADASTRO_PERMISSION_CHOICE,
+  SCREEN_PUMP_CHARGE_FUEL,
+
   // ACCESSES SCREEN
   SCREEN_ACCCESSES,
   SCREEN_ACCCESSES_CHOICE,
@@ -282,6 +288,7 @@ class DrawScreen
     void drawSetup(ScreenName screen, int interval, uint8_t status, bool estado[]);
     void readOperator(ScreenName screen, String name, String cardID);
     void drawMenu(ScreenName screen);
+    void drawScreen(ScreenName scren, String value);
     uint8_t _status;
     bool _state[8];
     int _interval;
@@ -330,13 +337,22 @@ class DataLogger
     DataLoggerStatus getDateHour();
     bool checkOperatorExist(String uuid);
     bool checkOperatorIsAdmin(String uuid);
+    bool checkPermissionExist(String uuid);
     String getOperator(String uuid);
+    String getVehicle(String uuid);
     bool checkVehicleExist(String uuid);
     void WriteOperatorInDatalogger();
     void WriteVehicleInDatalogger();
     void WritePermissionInDatalogger();
+    void WriteFuelChargeInDatalogger();
     void WriteFailMqttLog(String payload);
     String getTimestamp();
+    String _operatorUuid;
+    String _vehicleUuid;
+    String _operatorLevel;
+    String _vehicleFuel;
+    String _operatorName;
+    String _vehicleName;
 
   private:
     bool getDate(const char *str);
@@ -346,8 +362,6 @@ class DataLogger
     String _uuidToCheck;
     String _uuidRead;
     char _readCharacther;
-    String _operatorLevel;
-    String _operatorName;
 };
 
 enum ModemGPRSStatus{
@@ -403,6 +417,43 @@ class Operator
     String Read();
 
 };
+
+class Vehicle
+{
+  private:
+    byte status = 0;
+    bool successRead;
+    String _vehicle;
+  public:
+    Vehicle();
+    String Read();
+
+};
+
+class Permission
+{
+  private:
+  public:
+    Permission();
+    bool check(String uuid);
+};
+
+void CANAL_A();
+void CANAL_B();
+void CANAL_C();
+void CANAL_D();
+
+class Pump
+{
+  private:
+  uint8_t _buttonStatus;
+  uint8_t _pump;
+  public:
+    Pump();
+    float fuelLoad(Fuel fuel);
+    boolean registerFueLCharger();
+};
+
 
 
 enum MetodeAccesses{
@@ -490,6 +541,7 @@ class Json{
     String jsonOperatorMount();
     String jsonVehicleMount();
     String jsonPermissionMount();
+    String jsonFuelChargeMount();
 };
 
 #endif 
