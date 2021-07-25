@@ -26,6 +26,14 @@ byte linesPines[lines] = {49, 47, 45, 43};        //PINOS CONECTADOS AS LINHAS D
 byte columnsPines[columns] = {41, 39, 37, 35};    //PINOS CONECTADOS AS COLUNAS DO TECLADO
 char tecla_presionada;
 
+const uint8_t RELE_02           =       A13;                                  // Pino Rele_02
+const uint8_t RELE_01           =       A0;                                   // Pino Rele_01
+const uint8_t BOTAO             =       8;                                    // Botao de uso geral
+
+volatile unsigned long counter;
+float fuelQuantity;
+
+
 U8GLIB_ST7920_128X64_1X display(11, 12, 13);
 MFRC522 rfid(SS_SDA_PIN, RST_PIN);
 UID uniqueNumber;
@@ -48,6 +56,8 @@ Json json;
 
 const uint8_t ledErrado      =       29;
 const uint8_t ledCerto       =       31;
+
+
 
 Som::Som(int pinBuzzer){
 	_pinBuzzer = pinBuzzer;
@@ -177,6 +187,25 @@ void DrawScreen::readOperator(ScreenName screen, String name, String cardID){
   }
 }
 
+void DrawScreen::drawScreen(ScreenName targetScreen, String value){
+  _screen = targetScreen;
+  _name = value;
+  switch (_screen)
+  {
+    case SCREEN_PUMP_CHARGE_FUEL:
+      _name.toCharArray(_buffer, 24);
+      display.firstPage();
+      do {
+        display.setFont(u8g_font_6x10);
+        display.drawStr( 22, 15,"    LITROS    ");
+        display.drawStr( 22, 25," ABASTECIDOS  ");
+        display.setFont(u8g_font_unifont);
+        display.drawStr( 4, 45, _buffer);
+        display.drawRFrame(1, 31, 126, 18, 5);
+      } while (display.nextPage());
+    break;
+  }
+}  
 void DrawScreen::drawMenu(ScreenName targetScreen){
   _screen = targetScreen;
 
@@ -754,19 +783,16 @@ bool DataLogger::checkOperatorIsAdmin(String uuid){
   }
 }
 
-String DataLogger::getOperator(String uuid){
+bool DataLogger::checkPermissionExist(String uuid){
   _uuidToCheck = uuid;
   fileName.close();
   delay(50);
-  fileName = SD.open("CAD-OPE.txt");
+  fileName = SD.open("CAD-PER.txt");
   if (fileName) {
     while (fileName.available())
     {
       screen.drawMenu(SCREEN_PROGRESS);
       _uuidRead = fileName.readStringUntil(13);
-      _operatorLevel = _uuidRead.substring(_uuidRead.lastIndexOf(";") + 1);
-      _uuidRead.remove(_uuidRead.lastIndexOf(";"));
-      _operatorName = _uuidRead.substring(_uuidRead.lastIndexOf(";") + 1);
       Serial.println(_uuidRead);
       _uuidRead.trim();
       _uuidRead.remove(0,43);
@@ -777,10 +803,74 @@ String DataLogger::getOperator(String uuid){
       Serial.print (F(" Sistema <---> Nova Tag "));
       Serial.println (_uuidToCheck);
       if (_uuidToCheck == _uuidRead){
-        return _uuidRead + "#" + _operatorName + "#" + _operatorLevel;
+          return true;
+      }else{
+          return false;
+      }
+    }
+    return false;
+  }
+}
+
+String DataLogger::getOperator(String uuid){
+  _uuidToCheck = uuid;
+  _operatorUuid = "";
+  fileName.close();
+  delay(50);
+  fileName = SD.open("CAD-OPE.txt");
+  if (fileName) {
+    while (fileName.available())
+    {
+      screen.drawMenu(SCREEN_PROGRESS);
+      _operatorUuid = fileName.readStringUntil(13);
+      _operatorLevel = _operatorUuid.substring(_operatorUuid.lastIndexOf(";") + 1);
+      _operatorUuid.remove(_operatorUuid.lastIndexOf(";"));
+      _operatorName = _operatorUuid.substring(_operatorUuid.lastIndexOf(";") + 1);
+      Serial.println(_operatorUuid);
+      _operatorUuid.trim();
+      _operatorUuid.remove(0,43);
+      int length = _operatorUuid.indexOf(";");
+      _operatorUuid.remove(length);
+      Serial.print(F("Verificação de UUID = "));
+      Serial.print(_operatorUuid);
+      Serial.print (F(" Sistema <---> Nova Tag "));
+      Serial.println (_uuidToCheck);
+      if (_uuidToCheck == _operatorUuid){
+        return _operatorUuid + "#" + _operatorName + "#" + _operatorLevel;
       }
     }
     return "NO_OPERATOR";
+  }
+}
+
+String DataLogger::getVehicle(String uuid){
+  _uuidToCheck = uuid;
+  _vehicleUuid = "";
+  fileName.close();
+  delay(50);
+  fileName = SD.open("CAD-VEH.txt");
+  if (fileName) {
+    while (fileName.available())
+    {
+      screen.drawMenu(SCREEN_PROGRESS);
+      _vehicleUuid = fileName.readStringUntil(13);
+      _vehicleFuel = _vehicleUuid.substring(_vehicleUuid.lastIndexOf(";") + 1);
+      _vehicleUuid.remove(_vehicleUuid.lastIndexOf(";"));
+      _vehicleName = _vehicleUuid.substring(_vehicleUuid.lastIndexOf(";") + 1);
+      Serial.println(_vehicleUuid);
+      _vehicleUuid.trim();
+      _vehicleUuid.remove(0,43);
+      int length = _vehicleUuid.indexOf(";");
+      _vehicleUuid.remove(length);
+      Serial.print(F("Verificação de UUID = "));
+      Serial.print(_vehicleUuid);
+      Serial.print (F(" Sistema <---> Nova Tag "));
+      Serial.println (_uuidToCheck);
+      if (_uuidToCheck == _vehicleUuid){
+        return _vehicleUuid + "#" + _vehicleName + "#" + _vehicleFuel;
+      }
+    }
+    return "NO_VEHICLE";
   }
 }
 
@@ -939,6 +1029,58 @@ void DataLogger::WritePermissionInDatalogger(){
   }
 }
 
+void DataLogger::WriteFuelChargeInDatalogger(){
+  Serial.println("entrou na funcao WriteFuelCharger");
+  if (!SD.exists("CAD-REG.txt")){
+    Serial.println("tentou criar arquivo");
+    SD.open("CAD-REG.txt", FILE_WRITE);
+  } 
+  if (!SD.exists("CAD-REG.txt")){
+    Serial.println("cria;áo do arquivo deu errado");
+    if(!SD.begin(_pin_ss_datalogger)){
+      screen.drawMenu(SCREEN_ERROR);
+      Serial.println("Erro na abertura do cartao SD");
+      delay(1500);
+      loop();
+    }
+  }
+  Serial.println(fileName);
+  fileName.close();
+  Serial.println(fileName);
+  fileName = SD.open("CAD-REG.txt", FILE_WRITE);
+  Serial.println(fileName);
+  if (fileName) {
+    Serial.println(F("GRAVANDO DADOS NO CARTÃO SD"));
+    fileName.print(sd.getTimestamp());                  // DATA E HORA
+    fileName.print(";");                                // SEPARADOR CONDICIONAL
+    fileName.print(uniqueNumber.getUID());              // NUMERO UNICO DO EQUIPAMENTO
+    fileName.print(";");                                // SEPARADOR CONDICIONAL
+    fileName.print("099");                              // CODIGO DA FUNÇÃO
+    fileName.print(";");                                // SEPARADOR CONDICIONAL
+    fileName.print(sd._operatorUuid);                   // UID TAG RFID
+    fileName.print(";");                                // SEPARADOR CONDICIONAL
+    fileName.print(sd._operatorName);                   // NOME DO VEICULO
+    fileName.print(";");                                // SEPARADOR CONDICIONAL
+    fileName.print(sd._operatorLevel);
+    fileName.print(";");                                // SEPARADOR CONDICIONAL
+    fileName.print(sd._vehicleUuid);
+    fileName.print(";");                                // SEPARADOR CONDICIONAL
+    fileName.print(sd._vehicleName);
+    fileName.print(";");                                // SEPARADOR CONDICIONAL
+    fileName.print(sd._vehicleFuel);
+    fileName.print(";");                                // SEPARADOR CONDICIONAL
+    fileName.print(fuelQuantity);
+    fileName.close();
+    delay(500);
+  } else {
+    Serial.println(F("FALHA AO GRAVAR DADOS NO CARTÃO SD"));
+    screen.drawMenu(SCREEN_ERROR);
+    Serial.println("Erro na abertura do cartao SD");
+    delay(1500);
+    loop();
+  }
+}
+
 void DataLogger::WriteFailMqttLog(String payload){
   Serial.println("entrou na funcao WirteOperator");
   if (!SD.exists("CAD-ERR.txt")){
@@ -969,6 +1111,10 @@ void DataLogger::WriteFailMqttLog(String payload){
 DataLoggerStatus DataLogger::setSystemTimestamp(){
   if (getDate(__DATE__) && getTime(__TIME__)) 
   {
+    Serial.println("Guardando Timestamp do sistema");
+    Serial.println(getDate(__DATE__));
+    Serial.println(getTime(__TIME__));
+    delay(200);
     RTC.write(tm);
     getTimestamp();
     return DATALOGGER_TIME_OK;
@@ -2410,6 +2556,164 @@ String Operator::Read(){
   } while (status != 1);
 }
 
+
+Vehicle::Vehicle(){
+}
+
+String Vehicle::Read(){
+  Serial.println(F("==== FUNCAO VEICULO =========================================="));
+  _vehicle = "";
+  do {
+    screen.readOperator(SCREEN_OPERATOR_READ, "", "");
+    rfid.PCD_Init(SS_SDA_PIN, RST_PIN);
+    Serial.println(F("PASSE A TAG DO VEICULO"));
+    do {
+      successRead =  rfidReader.getID();
+      tecla_presionada = keyboard.getKey();
+    } while (!successRead);
+    Serial.println(rfidReader.IDValue);
+    screen.readOperator(SCREEN_OPERATOR_SEARCH, "", rfidReader.IDValue);
+    _vehicle = sd.getVehicle(rfidReader.IDValue);
+    Serial.println(_vehicle);
+    if(_vehicle != "NO_VEHICLE"){
+    screen.readOperator(SCREEN_OPERATOR_FOUND,
+    _vehicle.substring(_vehicle.indexOf("#") + 1, _vehicle.lastIndexOf("#")), 
+    rfidReader.IDValue);
+    buzzer.somCerto(ledCerto, 50);
+    return _vehicle;
+    }else{
+      screen.readOperator(SCREEN_OPERATOR_NOT_FOUND, "", rfidReader.IDValue);
+      screen.drawMenu(SCREEN_ERROR);
+      buzzer.somErrado(ledErrado, 250, 50);
+      delay(1500);
+      loop();
+    }
+    return "error";
+    delay(100);
+  } while (status != 1);
+  return "Error";
+}
+
+Permission::Permission(){
+}
+
+bool Permission::check(String uuid){
+  return (sd.checkPermissionExist(uuid));
+}
+
+void CANAL_A() {
+  // CANAL_A é ativado se o pino digital 2 sai de nivel baixo(LOW) para nivel alto(HIGH).
+  // Faz a chcagem do nivel logico do pino digital 3 para determinar a direção
+  if (digitalRead(3) == LOW) {
+    counter++;
+  } else {
+    counter--;
+  }
+}
+
+void CANAL_B() {
+  // CANAL_B é ativado se o pino digital 3 sai de nivel baixo(LOW) para nivel alto(HIGH).
+  // Faz a chcagem do nivel logico do pino digital 2 para determinar a direção
+  if (digitalRead(2) == LOW) {
+    counter--;
+  } else {
+    counter++;
+  }
+}
+void CANAL_C() {
+  // CANAL_C é ativado se o pino digital 19 sai de nivel baixo(LOW) para nivel alto(HIGH).
+  // Faz a chcagem do nivel logico do pino digital 18 para determinar a direção
+  if (digitalRead(18) == LOW) {
+    counter++;
+  } else {
+    counter--;
+  }
+}
+
+void CANAL_D() {
+  // CANAL_D é ativado se o pino digital 18 sai de nivel baixo(LOW) para nivel alto(HIGH).
+  // Faz a chcagem do nivel logico do pino digital 19 para determinar a direção
+  if (digitalRead(19) == LOW) {
+    counter--;
+  } else {
+    counter++;
+  }
+}
+
+Pump::Pump(){
+  pinMode(RELE_01, OUTPUT);
+  pinMode(RELE_02, OUTPUT);
+  pinMode(BOTAO, INPUT);
+  digitalWrite(BOTAO, LOW);
+}
+
+float Pump::fuelLoad(Fuel fuel){
+  _buttonStatus = 0;
+  fuelQuantity = 0;
+  screen.drawScreen(SCREEN_PUMP_CHARGE_FUEL, String(fuelQuantity));
+  switch (fuel)
+  {
+  case S500:
+    _pump = RELE_02;
+    digitalWrite(_pump, HIGH);
+    do {
+      attachInterrupt(0, CANAL_A, RISING); //A rampa de subida do da interrupção 4 ativa a função CANAL_D(). AttachInterrupt 4 esta ligado no pino 19 do Arduino Mega.
+      attachInterrupt(1, CANAL_B, RISING); //A rampa de subida do da interrupção 5 ativa a função CANAL_D(). AttachInterrupt 4 esta ligado no pino 19 do Arduino Mega.
+      _buttonStatus = digitalRead(_pump);
+      delay(10);
+      if (_buttonStatus == 1) {
+        fuelQuantity = (float)counter * 0.0025;
+        if ((counter < 20) || (counter > 4000000)) {
+        fuelQuantity = 0;
+        } else {
+          //tela de abastecimento
+          screen.drawScreen(SCREEN_PUMP_CHARGE_FUEL, String(fuelQuantity));
+          }
+        delay(100);
+      }
+      if (digitalRead(BOTAO) == HIGH) { // Condicao que interrompe o abastecimento
+        digitalWrite(_pump, LOW);
+      }
+    }
+    while (_buttonStatus == 1);
+    return fuelQuantity;
+    break;
+  
+  case S10:
+    /* code */
+    break;
+  
+  default:
+    break;
+  }
+}
+
+boolean Pump::registerFueLCharger() {
+  screen.drawMenu(SCREEN_PROGRESS);
+  jsonPayload = "";
+  sd.WriteFuelChargeInDatalogger();
+  screen.drawMenu(SCREEN_PROGRESS);
+  jsonPayload = json.jsonFuelChargeMount();
+  Serial.println(jsonPayload);
+  // enviar novo abastecimento por mqtt para broker
+  screen.drawMenu(SCREEN_PROGRESS);
+  if(mqtt.send(TOPIC_REGISTER, jsonPayload)){
+    Serial.println("Eviou MQTT");
+    screen.drawMenu(SCREEN_SUCCESS);
+    buzzer.somCerto(ledCerto, 50);
+    delay(1500);
+    loop();
+  }else{
+    sd.WriteFailMqttLog(jsonPayload);
+    Serial.println("Erro MQTT final");
+    screen.drawMenu(SCREEN_SUCCESS);
+    buzzer.somCerto(ledCerto, 50);
+    delay(1500);
+    loop();
+  }
+
+}
+
 Json::Json(){
 }
 
@@ -2568,7 +2872,7 @@ String Json::jsonPermissionMount(){
   _payload += "\"";
   _payload += ",";
 
-  _payload += "\"p\":";
+  _payload += "\"pt\":";
   _payload += "\"";
   _payload += String(menu._UUIDPermission);
   _payload += "\"";
@@ -2576,4 +2880,89 @@ String Json::jsonPermissionMount(){
   _payload += "}";
 
   return _payload;
+
 }
+
+String Json::jsonFuelChargeMount(){
+  _payload = "";
+  _temp = "";
+  _temp = String(sd.getTimestamp());
+  _temp.remove(10, 9);
+  //_temp.remove(2, 1);
+  //_temp.remove(4, 1);
+
+  _payload = "{";
+  _payload += "\"d\":";
+  _payload += "\"";
+  _payload += String(_temp);
+  _payload += "\"";
+  _payload += ",";
+
+  _temp = "";
+  _temp = String(sd.getTimestamp());
+  _temp.remove(0, 11);
+
+  _payload += "\"h\":";
+  _payload += "\"";
+  _payload += String(_temp);
+  _payload += "\"";
+  _payload += ",";
+
+  _payload += "\"e\":";
+  _payload += "\"";
+  _payload += String(uniqueNumber.getUID());
+  _payload += "\"";
+  _payload += ",";
+
+  _payload += "\"c\":";
+  _payload += "\"";
+  _payload += String("099");
+  _payload += "\"";
+  _payload += ",";
+
+  _payload += "\"ot\":";
+  _payload += "\"";
+  _payload += String(sd._operatorUuid);
+  _payload += "\"";
+  _payload += ",";
+
+  _payload += "\"on\":";
+  _payload += "\"";
+  _payload += String(sd._operatorName);
+  _payload += "\"";
+  _payload += ",";
+
+  _payload += "\"ol\":";
+  _payload += "\"";
+  _payload += String(sd._operatorLevel);
+  _payload += "\"";
+  _payload += ",";
+
+  _payload += "\"vt\":";
+  _payload += "\"";
+  _payload += String(sd._vehicleUuid);
+  _payload += "\"";
+  _payload += ",";
+
+  _payload += "\"vn\":";
+  _payload += "\"";
+  _payload += String(sd._vehicleName);
+  _payload += "\"";
+  _payload += ",";
+
+  _payload += "\"vf\":";
+  _payload += "\"";
+  _payload += String(sd._vehicleFuel);
+  _payload += "\"";
+  _payload += ",";
+
+  _payload += "\"fq\":";
+  _payload += "\"";
+  _payload += String(fuelQuantity);
+  _payload += "\"";
+
+  _payload += "}";
+
+  return _payload;
+}
+
