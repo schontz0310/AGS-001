@@ -1,11 +1,10 @@
 
 #include <Utils.h>
 
-
-#define MQTT_SERVER                     "mqtt.datamills.com.br"         //"mqtt://things.ubidots.com"
-#define MQTT_PORT                       1883                                  // Porta para comunicação com Broker MQTT
-#define USER                            "supply-admin"                     // "USUARIO"
-#define PASS                            "supply@19!"                        // "SENHA"
+const char MQTT_SERVER[]        =       "mqtt.datamills.com.br";                //"mqtt://things.ubidots.com"
+const int MQTT_PORT             =       1883;                                   // Porta para comunicação com Broker MQTT
+const char USER[]               =       "supply-admin";                         // "USUARIO"
+const char PASS[]               =       "supply@19!";                           // "SENHA"
 
 String SENHA_AGS                =       "380130";                             // Senha ROOT, apenas pessoal autorizado da AGS possue
 String jsonPayload              =       "";                             
@@ -22,8 +21,12 @@ char matriz[lines][columns] =
   { '7', '8', '9', 'C'},
   { '*', '0', '#', 'D'},
 };
-byte linesPines[lines] = {49, 47, 45, 43};        //PINOS CONECTADOS AS LINHAS DO TECLADO
-byte columnsPines[columns] = {41, 39, 37, 35};    //PINOS CONECTADOS AS COLUNAS DO TECLADO
+// byte linesPines[lines] = {49, 47, 45, 43};        //PINOS CONECTADOS AS LINHAS DO TECLADO
+// byte columnsPines[columns] = {41, 39, 37, 35};    //PINOS CONECTADOS AS COLUNAS DO TECLADO
+
+byte linesPines[lines] = {41, 39, 37, 35};        //PINOS CONECTADOS AS LINHAS DO TECLADO
+byte columnsPines[columns] = {49, 47, 45, 43};    //PINOS CONECTADOS AS COLUNAS DO TECLADO
+
 char tecla_presionada;
 
 const uint8_t RELE_02           =       A13;                                  // Pino Rele_02
@@ -32,6 +35,7 @@ const uint8_t BOTAO             =       8;                                    //
 
 volatile unsigned long counter;
 float fuelQuantity;
+String _COMPANY;
 
 
 U8GLIB_ST7920_128X64_1X display(11, 12, 13);
@@ -206,6 +210,7 @@ void DrawScreen::drawScreen(ScreenName targetScreen, String value){
     break;
   }
 }  
+
 void DrawScreen::drawMenu(ScreenName targetScreen){
   _screen = targetScreen;
 
@@ -247,6 +252,19 @@ void DrawScreen::drawMenu(ScreenName targetScreen){
         display.drawRFrame(1, 49, 15, 15, 3);
       } while (display.nextPage());  
     break;
+
+    case SCREEN_MENU_CONFIGURACAO:
+      display.firstPage();
+      do {
+        display.setFont(u8g_font_unifont);
+        display.drawStr( 27, 12, "CONFIGURACAO");
+        display.drawStr( 28, 12, "CONFIGURACAO");
+        display.setFont(u8g_font_6x10);
+        display.drawStr( 27, 28, "REGISTRO");
+        display.drawStr( 6, 28, "1");
+        display.drawRFrame(1, 17, 15, 15, 3);
+      } while (display.nextPage());  
+    break;
     
     case SCREEN_ACCCESSES:
       display.firstPage();
@@ -272,6 +290,19 @@ void DrawScreen::drawMenu(ScreenName targetScreen){
       do {
         display.setFont(u8g_font_6x10);
         display.drawStr( 22, 15, "DIGITE A SENHA");
+        display.drawStr( 22, 25, "  DE  ACESSO  ");
+        display.drawStr( 3, 60, "APERTE '*' PARA MENU");
+        display.setFont(u8g_font_unifont);
+        display.drawStr( 4, 45, access._buffer);
+        display.drawRFrame(1, 31, 126, 18, 5);
+      } while (display.nextPage());  
+    break;
+
+    case SCREEN_ACCCESSES_CARD:
+      display.firstPage();
+      do {
+        display.setFont(u8g_font_6x10);
+        display.drawStr( 22, 15, "PASSE O CARTAO");
         display.drawStr( 22, 25, "  DE  ACESSO  ");
         display.drawStr( 3, 60, "APERTE '*' PARA MENU");
         display.setFont(u8g_font_unifont);
@@ -418,6 +449,34 @@ void DrawScreen::drawMenu(ScreenName targetScreen){
         display.drawRFrame(1, 33, 15, 15, 3);
       } while (display.nextPage());  
     break;
+    case SCREEN_CONFIGURACAO_REGISTRO_CHOICE:
+      display.firstPage();
+      do {
+        display.setFont(u8g_font_unifont);
+        display.drawStr( 1, 12, "ESCOLHA A OPCAO");
+        display.drawStr( 2, 12, "ESCOLHA A OPCAO");
+        display.setFont(u8g_font_6x10);
+        display.drawStr( 27, 28, "INCLUIR REGISTRO");
+        display.drawStr( 6, 28, "1");
+        display.drawRFrame(1, 17, 15, 15, 3);
+        display.drawStr( 27, 44, "EXCLUIR REGISTRO");
+        display.drawStr( 6, 44, "2");
+        display.drawRFrame(1, 33, 15, 15, 3);
+      } while (display.nextPage());  
+    break;
+    case SCREEN_CONFIGURACAO_REGISTRO:
+      display.firstPage();
+      do {
+        display.setFont(u8g_font_6x10);
+        display.drawStr( 22, 15, " INSIRA O CNPJ ");
+        display.drawStr( 22, 25, "  DA EMPRESA  ");
+        display.drawStr( 3, 60, "APERTE '*' PARA MENU");
+        display.setFont(u8g_font_unifont);
+        display.drawStr( 4, 45, key._buffer);
+        display.drawRFrame(1, 31, 126, 18, 5);
+      } while (display.nextPage());  
+    break;
+
     case SCREEN_PROGRESS:
         _status  = _status + 10;       
         if (_status >= 100 ){
@@ -812,6 +871,82 @@ bool DataLogger::checkPermissionExist(String uuid){
   }
 }
 
+bool DataLogger::checkCompanyExist(String uuid){
+  _uuidToCheck = uuid;
+  fileName.close();
+  Serial.println("entrou na funcao WriteCompanyRegister");
+  if (!SD.exists("CAD-COM.txt")){
+    Serial.println("tentou criar arquivo");
+    SD.open("CAD-COM.txt", FILE_WRITE);
+  } 
+  if (!SD.exists("CAD-COM.txt")){
+    Serial.println("cria;áo do arquivo deu errado");
+    if(!SD.begin(_pin_ss_datalogger)){
+      screen.drawMenu(SCREEN_ERROR);
+      Serial.println("Erro na abertura do cartao SD");
+      delay(1500);
+      loop();
+    }
+  }
+  _uuidToCheck = uuid;
+  fileName.close();
+  delay(50);
+  fileName = SD.open("CAD-COM.txt");
+  if (fileName) {
+    while (fileName.available())
+    {
+      screen.drawMenu(SCREEN_PROGRESS);
+      _uuidRead = fileName.readStringUntil(13);
+      Serial.println(_uuidRead);
+      _uuidRead.trim();
+      _uuidRead.remove(0,43);
+      int length = _uuidRead.indexOf(";");
+      _uuidRead.remove(length);
+      Serial.print(F("Verificação de UUID = "));
+      Serial.print(_uuidRead);
+      Serial.print (F(" Sistema <---> Nova Tag "));
+      Serial.println (_uuidToCheck);
+      if (_uuidToCheck == _uuidRead){
+        return true;
+      }
+    }
+    return false;
+  }
+}
+
+String DataLogger::getCompany(){
+  Serial.println("entrou na funcao getCompany");
+  if (!SD.exists("CAD-COM.txt")){
+    Serial.println("tentou criar arquivo");
+    SD.open("CAD-COM.txt", FILE_WRITE);
+  } 
+  if (!SD.exists("CAD-COM.txt")){
+    Serial.println("cria;áo do arquivo deu errado");
+    if(!SD.begin(_pin_ss_datalogger)){
+      screen.drawMenu(SCREEN_ERROR);
+      Serial.println("Erro na abertura do cartao SD");
+      delay(1500);
+      loop();
+    }
+  }
+  fileName.close();
+  delay(50);
+  fileName = SD.open("CAD-COM.txt");
+  if (fileName) {
+    while (fileName.available())
+    {
+      screen.drawMenu(SCREEN_PROGRESS);
+      _operatorUuid = fileName.readStringUntil(13);
+      _operatorLevel = _operatorUuid.substring(_operatorUuid.lastIndexOf(";") + 1);
+      if (_operatorLevel.length() > 10){
+        _COMPANY = _operatorLevel;
+        return _operatorLevel;
+      }
+    }
+    return "NO_COMPANY";
+  }
+}
+
 String DataLogger::getOperator(String uuid){
   _uuidToCheck = uuid;
   _operatorUuid = "";
@@ -1070,6 +1205,8 @@ void DataLogger::WriteFuelChargeInDatalogger(){
     fileName.print(sd._vehicleFuel);
     fileName.print(";");                                // SEPARADOR CONDICIONAL
     fileName.print(fuelQuantity);
+    fileName.print(";");                                // SEPARADOR CONDICIONAL
+    fileName.println(_COMPANY);
     fileName.close();
     delay(500);
   } else {
@@ -1081,12 +1218,57 @@ void DataLogger::WriteFuelChargeInDatalogger(){
   }
 }
 
-void DataLogger::WriteFailMqttLog(String payload){
-  Serial.println("entrou na funcao WirteOperator");
-  if (!SD.exists("CAD-ERR.txt")){
+void DataLogger::WriteCompanyRegisterInDatalogger(){
+  Serial.println("entrou na funcao WriteCompanyRegister");
+  if (!SD.exists("CAD-COM.txt")){
+    Serial.println("tentou criar arquivo");
+    SD.open("CAD-COM.txt", FILE_WRITE);
+  } 
+  if (!SD.exists("CAD-COM.txt")){
+    Serial.println("cria;áo do arquivo deu errado");
     if(!SD.begin(_pin_ss_datalogger)){
       screen.drawMenu(SCREEN_ERROR);
-      Serial.println("Erro na abertura do cartao SD, [Utils.cpp - 688]");
+      Serial.println("Erro na abertura do cartao SD");
+      delay(1500);
+      loop();
+    }
+  }
+  Serial.println(fileName);
+  fileName.close();
+  Serial.println(fileName);
+  fileName = SD.open("CAD-COM.txt", FILE_WRITE);
+  Serial.println(fileName);
+  if (fileName) {
+    Serial.println(F("GRAVANDO DADOS NO CARTÃO SD"));
+    fileName.print(sd.getTimestamp());                  // DATA E HORA
+    fileName.print(";");                                // SEPARADOR CONDICIONAL
+    fileName.print(uniqueNumber.getUID());              // NUMERO UNICO DO EQUIPAMENTO
+    fileName.print(";");                                // SEPARADOR CONDICIONAL
+    fileName.print("080");                              // CODIGO DA FUNÇÃO
+    fileName.print(";");                                // SEPARADOR CONDICIONAL
+    fileName.println(menu._companyNumber);             // UID TAG RFID
+    fileName.close();
+    delay(500);
+  } else {
+    Serial.println(F("FALHA AO GRAVAR DADOS NO CARTÃO SD"));
+    screen.drawMenu(SCREEN_ERROR);
+    Serial.println("Erro na abertura do cartao SD, [Utils.cpp - 892]");
+    delay(1500);
+    loop();
+  }
+}
+
+void DataLogger::WriteFailMqttLog(String payload){
+  Serial.println("entrou na funcao WriteFailMqttLog");
+  if (!SD.exists("CAD-ERR.txt")){
+    Serial.println("tentou criar arquivo");
+    SD.open("CAD-ERR.txt", FILE_WRITE);
+  } 
+  if (!SD.exists("CAD-ERR.txt")){
+    Serial.println("cria;áo do arquivo deu errado");
+    if(!SD.begin(_pin_ss_datalogger)){
+      screen.drawMenu(SCREEN_ERROR);
+      Serial.println("Erro na abertura do cartao SD");
       delay(1500);
       loop();
     }
@@ -1124,7 +1306,8 @@ DataLoggerStatus DataLogger::setSystemTimestamp(){
 }
 
 bool DataLogger::getDate(const char *str) {
-  
+  Serial.println(__DATE__);
+  Serial.println(__TIME__);
   char Month[12];
   int Day, Year;
   uint8_t monthIndex;
@@ -1211,7 +1394,7 @@ ModemGPRSStatus ModemGPRS::setup(){
   if (!modemGSM.waitForNetwork())
   {
     Serial.println(F("FALHA DE CONEXÃO COM A REDE"));
-    if (connectionCount >= 2 ){
+    if (connectionCount >= 1 ){
       return MODEM_ERROR_NETWORK;
     }else{
       connectionCount ++;
@@ -1224,16 +1407,17 @@ ModemGPRSStatus ModemGPRS::setup(){
     Serial.println(F("CONECTADO A REDE COM SUCESSO"));
   } 
   uint8_t gprs_count = 0;
+
+  AGAIN_GPRS_CON:
   if (!modemGSM.gprsConnect("m2mprepago.br", "Arqia", "Arqia")) {
   // if (!modemGSM.gprsConnect("zap.vivo.com.br", "vivo", "vivo")) {  
-    delay(5000);
+    delay(2000);
     Serial.print(F("TENTATIVA = "));
     Serial.println(gprs_count);
     Serial.println(F("CONEXÃO DE DADOS FALHOU"));
-    delay(5000);
     gprs_count++;
-    if (gprs_count <= 3) {
-      goto AGAIN_GPRS;
+    if (gprs_count <= 0) {
+      goto AGAIN_GPRS_CON;
     }
     return MODEM_ERROR_GPRS;
   } else {
@@ -1251,7 +1435,7 @@ AGAIN_GPRS:
   if (!modemGSM.waitForNetwork())
   {
     Serial.println(F("FALHA DE CONEXÃO COM A REDE"));
-    delay(7000);
+    delay(3000);
   } 
   if (modemGSM. isNetworkConnected ()) {
     Serial.println(F("CONECTADO A REDE COM SUCESSO"));
@@ -1262,17 +1446,18 @@ AGAIN_GPRS:
   Serial.print(F("IMEI:"));
   Serial.println(imei);
   int gprs_count = 0;
+  AGAIN_GPRS_CON:
   //Conecta à rede gprs (APN, usuário, senha)
-  //if (!modemGSM.gprsConnect("allcom.br", "allcom", "allcom")) {
-    if (!modemGSM.gprsConnect("zap.vivo.com.br", "vivo", "vivo")) {
+  if (!modemGSM.gprsConnect("m2mprepago.br", "Arqia", "Arqia")) {
+  //if (!modemGSM.gprsConnect("zap.vivo.com.br", "vivo", "vivo")) {
   //if (!modemGSM.gprsConnect("gprs.oi.com.br", "oi", "oi")) {
-    delay(10000);
+    delay(2000);
     Serial.print(F("TENTATIVA = "));
     Serial.println(gprs_count);
     Serial.println(F("CONEXÃO DE DADOS FALHOU"));
     gprs_count++;
-    if (gprs_count <= 2) {
-      goto AGAIN_GPRS;
+    if (gprs_count <= 1) {
+      goto AGAIN_GPRS_CON;
     }else{
       Serial.println(F("IMPOSSIVEL ESTABELECER CONEXÃO DE DADOS"));
       return;
@@ -1299,8 +1484,8 @@ MQTTStatus MQTTConnection::setup(const char * domain, uint16_t port, const char 
 {
   Serial.println(F("Connecting to MQTT Server..."));
   client.setServer(domain, port);
-  (uniqueNumber.getUID()).toCharArray(_buffer, 24);
-  client.connect(_buffer, user, password);
+  bool conn = client.connect("çfdkf", user, password);
+  Serial.println("teste" + conn);
   client.disconnect();
   if (client.connect(_buffer, user, password)) {
     return MQTT_READY;
@@ -1350,18 +1535,14 @@ boolean MQTTConnection::send(String topic, String payload){
     Serial.println(F("Step 2"));
     flag = false;
   };
-
   if(flag == false){
     Serial.println(F("step 3"));
-    if(internet.reconnect()){
+    if(internet.reconnect() == MODEM_OK_RESTART){
       flag = true;
     }else{
       return false;
     } 
   }
-
-
-
   _payload = payload;
   _topic = topic;
   int steps = 0;
@@ -1371,7 +1552,7 @@ boolean MQTTConnection::send(String topic, String payload){
   if (client.publish(_topic.c_str(), _payload.c_str())){
     return true;
   }else{
-    if(steps < 2){
+    if(steps < 1){
       Serial.print(F("tentativa = "));
       Serial.println(steps);
       steps++;
@@ -1383,6 +1564,38 @@ boolean MQTTConnection::send(String topic, String payload){
 }
 
 Menu::Menu(){
+}
+
+void Menu::menuConfiguracao(){
+  Serial.println(F(" ENTROU MENU CONFIGURACAO"));
+  screen.drawMenu(SCREEN_MENU_CONFIGURACAO);
+  do {
+    tecla_presionada = keyboard.getKey();
+  } while (!tecla_presionada);
+  switch (tecla_presionada)
+  {
+    case '1':
+      menu.menuAccesses(SCREEN_CONFIGURACAO_REGISTRO_CHOICE);
+      Serial.println(F("BOTAO 1 - REGISTRO DE DISPOSITIVO"));
+      break;
+    case '2':
+    case '4':
+    case '5':
+    case '6':
+    case '7':
+    case '8':
+    case '9':
+    case '0':
+    case '*':
+    case '#':
+    case 'A':
+    case 'B':
+    case 'C':
+    case 'D':
+      Serial.println(F("SAIU DO MENU"));
+      loop();
+      break;
+  }
 }
 
 void Menu::menuPrincipal(){
@@ -1400,7 +1613,7 @@ void Menu::menuPrincipal(){
       Serial.println(F("BOTAO 1"));
       break;
     case '2':
-      //Menu_Configuracoes();
+      menu.menuConfiguracao();
       Serial.println(F("BOTAO 2"));
       break;
     case '3':
@@ -1499,6 +1712,7 @@ void Menu::menuAccesses(MetodeAccesses metode, ScreenName nextScreen){
   switch (_metode)
   {
     case CARD:
+      memset(access._buffer, 0, sizeof(access._buffer));
       screen.drawMenu(SCREEN_ACCCESSES_CARD);
       if(access.accessValidate(_metode)){
         Serial.println("Senha valida");
@@ -1583,19 +1797,39 @@ void Menu::menuAccesses(MetodeAccesses metode, ScreenName nextScreen){
           case '1':
             menu.permissionRegistrationMenu();
             break;
-          case '2':
-            //[ ] implement metode to delete veichle
-            break;
           default:
             Serial.println(F("CANCELAR"));
             loop();
             break;
         }
         break;
+      case SCREEN_CONFIGURACAO_REGISTRO_CHOICE:
+        screen.drawMenu(_nextScreen);
+        do {
+          tecla_presionada = keyboard.getKey();
+        } while (!tecla_presionada);
+        Serial.print("Tecla pressionada = ");
+        Serial.println(tecla_presionada);
+        switch (tecla_presionada)
+        {
+          case '1':
+            menu.assignDeviceRegister(); // [ ] TODO
+            break;
+          default:
+            Serial.println(F("CANCELAR"));
+            loop();
+            break;
+        }
+        break;  
       default:
         loop();
         break;
     }
+  }else{
+    screen.drawMenu(SCREEN_ERROR);
+    buzzer.somErrado(ledErrado, 250, 50);
+    delay(1500);
+    loop();
   }
 }
 
@@ -1863,6 +2097,39 @@ void Menu::permissionRegistrationMenu(){
   delay(5000);
 }
 
+void Menu::assignDeviceRegister(){
+  _companyNumber = key.keyboardGetKeyAlfanumeric(SCREEN_CONFIGURACAO_REGISTRO);
+  _companyNumber.trim();
+  Serial.println("compainha = " + _companyNumber);
+  if(sd.checkCompanyExist(_companyNumber)){
+    buzzer.somErrado(ledErrado, 250, 50);
+    screen.drawMenu(SCREEN_ERROR);
+    Serial.println("Cadastro existente");
+    delay(1500);
+    loop();
+  }
+  sd.WriteCompanyRegisterInDatalogger();
+  screen.drawMenu(SCREEN_PROGRESS);
+  jsonPayload = json.jsonAssignMount();
+  Serial.println(jsonPayload);
+    screen.drawMenu(SCREEN_PROGRESS);
+  if(mqtt.send(TOPIC_REGISTER, jsonPayload)){
+    Serial.println("Eviou MQTT");
+    screen.drawMenu(SCREEN_SUCCESS);
+    buzzer.somCerto(ledCerto, 50);
+    delay(1500);
+    loop();
+  }else{
+    sd.WriteFailMqttLog(jsonPayload);
+    Serial.println("Erro MQTT final");
+    screen.drawMenu(SCREEN_SUCCESS);
+    buzzer.somCerto(ledCerto, 50);
+    delay(1500);
+    loop();
+  }
+  loop();
+}
+
 Access::Access(){
 }
 
@@ -2003,6 +2270,30 @@ bool Access::accessValidate(MetodeAccesses metode){
       } while (_keyPressed != '.');
     break;
     case CARD:
+    rfid.PCD_Init(SS_SDA_PIN, RST_PIN);
+    Serial.println(F("PASSE A TAG DO VEICULO"));
+    do {
+      cardIsRead =  rfidReader.getID();
+      tecla_presionada = keyboard.getKey();
+    } while (!cardIsRead);    delay(500);
+    Serial.println(rfidReader.IDValue);
+    screen.readOperator(SCREEN_OPERATOR_SEARCH, "", rfidReader.IDValue);
+    delay(500);
+    _operatorLevel = sd.getOperator(rfidReader.IDValue);
+    Serial.println(_operatorLevel);
+    if(_operatorLevel != "NO_OPERATOR"){
+      if(sd.checkOperatorIsAdmin(rfidReader.IDValue)){
+        return true;
+      }else{
+        return false;
+      }
+    }else{
+      screen.readOperator(SCREEN_OPERATOR_NOT_FOUND, "", rfidReader.IDValue);
+      screen.drawMenu(SCREEN_ERROR);
+      buzzer.somErrado(ledErrado, 250, 50);
+      delay(1500);
+      loop();
+    }
     break;  
     default:
     break;
@@ -2648,6 +2939,7 @@ Pump::Pump(){
 }
 
 float Pump::fuelLoad(Fuel fuel){
+  counter = 0;
   _buttonStatus = 0;
   fuelQuantity = 0;
   screen.drawScreen(SCREEN_PUMP_CHARGE_FUEL, String(fuelQuantity));
@@ -2664,11 +2956,11 @@ float Pump::fuelLoad(Fuel fuel){
       if (_buttonStatus == 1) {
         fuelQuantity = (float)counter * 0.0025;
         if ((counter < 20) || (counter > 4000000)) {
-        fuelQuantity = 0;
+          fuelQuantity = 0;
         } else {
-          //tela de abastecimento
+          // tela de abastecimento
           screen.drawScreen(SCREEN_PUMP_CHARGE_FUEL, String(fuelQuantity));
-          }
+        }
         delay(100);
       }
       if (digitalRead(BOTAO) == HIGH) { // Condicao que interrompe o abastecimento
@@ -2680,7 +2972,29 @@ float Pump::fuelLoad(Fuel fuel){
     break;
   
   case S10:
-    /* code */
+    _pump = RELE_01;
+    digitalWrite(_pump, HIGH);
+    do {
+      attachInterrupt(4, CANAL_C, RISING); //A rampa de subida do da interrupção 4 ativa a função CANAL_D(). AttachInterrupt 4 esta ligado no pino 19 do Arduino Mega.
+      attachInterrupt(5, CANAL_D, RISING); //A rampa de subida do da interrupção 5 ativa a função CANAL_D(). AttachInterrupt 4 esta ligado no pino 19 do Arduino Mega.
+      _buttonStatus = digitalRead(_pump);
+      delay(10);
+      if (_buttonStatus == 1) {
+        fuelQuantity = (float)counter * 0.0025;
+        if ((counter < 20) || (counter > 4000000)) {
+          fuelQuantity = 0;
+        } else {
+          // tela de abastecimento
+          screen.drawScreen(SCREEN_PUMP_CHARGE_FUEL, String(fuelQuantity));
+        }
+        delay(100);
+      }
+      if (digitalRead(BOTAO) == HIGH) { // Condicao que interrompe o abastecimento
+        digitalWrite(_pump, LOW);
+      }
+    }
+    while (_buttonStatus == 1);
+    return fuelQuantity;
     break;
   
   default:
@@ -2754,19 +3068,19 @@ String Json::jsonOperatorMount(){
   _payload += "\"";
   _payload += ",";
 
-  _payload += "\"t\":";
+  _payload += "\"ot\":";
   _payload += "\"";
   _payload += String(menu._UUIDCard);
   _payload += "\"";
   _payload += ",";
 
-  _payload += "\"o\":";
+  _payload += "\"on\":";
   _payload += "\"";
   _payload += String(menu._operatorName);
   _payload += "\"";
   _payload += ",";
 
-  _payload += "\"n\":";
+  _payload += "\"ol\":";
   _payload += "\"";
   _payload += String(menu._operatorlevel);
   _payload += "\"";
@@ -2781,9 +3095,7 @@ String Json::jsonVehicleMount(){
   _temp = "";
   _temp = String(sd.getTimestamp());
   _temp.remove(10, 9);
-  //_temp.remove(2, 1);
-  //_temp.remove(4, 1);
-
+  
   _payload = "{";
   _payload += "\"d\":";
   _payload += "\"";
@@ -2813,19 +3125,19 @@ String Json::jsonVehicleMount(){
   _payload += "\"";
   _payload += ",";
 
-  _payload += "\"t\":";
+  _payload += "\"vt\":";
   _payload += "\"";
   _payload += String(menu._UUIDCard);
   _payload += "\"";
   _payload += ",";
 
-  _payload += "\"v\":";
+  _payload += "\"vn\":";
   _payload += "\"";
   _payload += String(menu._vehicleName);
   _payload += "\"";
   _payload += ",";
 
-  _payload += "\"f\":";
+  _payload += "\"vf\":";
   _payload += "\"";
   _payload += String(menu._vehicleFuel);
   _payload += "\"";
@@ -2888,8 +3200,6 @@ String Json::jsonFuelChargeMount(){
   _temp = "";
   _temp = String(sd.getTimestamp());
   _temp.remove(10, 9);
-  //_temp.remove(2, 1);
-  //_temp.remove(4, 1);
 
   _payload = "{";
   _payload += "\"d\":";
@@ -2960,9 +3270,60 @@ String Json::jsonFuelChargeMount(){
   _payload += "\"";
   _payload += String(fuelQuantity);
   _payload += "\"";
+  _payload += ",";
+
+  _payload += "\"cy\":";
+  _payload += "\"";
+  _payload += String(_COMPANY);
+  _payload += "\"";
 
   _payload += "}";
 
   return _payload;
+}
+
+String Json::jsonAssignMount(){
+  _payload = "";
+  _temp = "";
+  _temp = String(sd.getTimestamp());
+  _temp.remove(10, 9);
+
+  _payload = "{";
+  _payload += "\"d\":";
+  _payload += "\"";
+  _payload += String(_temp);
+  _payload += "\"";
+  _payload += ",";
+
+  _temp = "";
+  _temp = String(sd.getTimestamp());
+  _temp.remove(0, 11);
+
+  _payload += "\"h\":";
+  _payload += "\"";
+  _payload += String(_temp);
+  _payload += "\"";
+  _payload += ",";
+
+  _payload += "\"e\":";
+  _payload += "\"";
+  _payload += String(uniqueNumber.getUID());
+  _payload += "\"";
+  _payload += ",";
+
+  _payload += "\"c\":";
+  _payload += "\"";
+  _payload += String("080");
+  _payload += "\"";
+  _payload += ",";
+
+  _payload += "\"cy\":";
+  _payload += "\"";
+  _payload += String(menu._companyNumber);
+  _payload += "\"";
+
+  _payload += "}";
+
+  return _payload;  
 }
 

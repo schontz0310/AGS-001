@@ -7,11 +7,11 @@
 // 06/08/2020 - V2.1 incluido telas de espera                                 //////
 // 02/11/2020 - V3.1 Refatoração completa do cogido                           //////
 // 10/12/2020 - V4.0 Refatoração completa usando plataformIO/VScode/GitHub    //////
+// 25/07/2021 - V5.0 Finalizado refatoração e validado codigo com placa nova  //////
 //  @Commit xxxxxxxxx                                                         //////
 //  [v] -> Correção da conectividade Gprs/Mqtt com problema de timeout        //////
-//  [x] -> Refatoração dos codigos de tela                                    //////
 //  [ ] -> Apresentar codigo de erro com opção de continuar                   //////
-//  [ ] -> Incluir liberação de funções com apresentação de cartão MASTER     //////
+//  [v] -> Incluir liberação de funções com apresentação de cartão MASTER     //////
 //  [ ] -> Ocultar caracteres de senha ao digitar                             //////
 //  [v] -> Criado lista de codigos de erro                                    //////
 //                                                                            //////
@@ -101,6 +101,7 @@ Pump pumpControl;
 
 // VARIAVEIS DO SISTEMA //
 
+String COMPANY;
 String OPERADOR_REGISTER;
 String OPERADOR_NAME;
 String OPERADOR_PERMISSION;
@@ -197,6 +198,7 @@ void setup() {
   visor.drawSetup(SCREEN_VERIFY_MODEM, 2000, statusCheck, stateCheck);
 
   // Initialize MQTT connection
+  // goto MQTT_JUMP;
   statusCheck = 0;
   MQTT_AGAIN:
   if (BrokerMQTT.setup(MQTT_SERVER, MQTT_PORT, USER, PASS) == MQTT_READY){
@@ -204,7 +206,7 @@ void setup() {
     stateCheck[4] = 0;
     alert.somCerto(LED_VERDE, 50);
   }else{
-    if (statusCheck < 2){
+    if (statusCheck < 1){
       statusCheck++;
       goto MQTT_AGAIN;
     }else{
@@ -215,6 +217,7 @@ void setup() {
   }
   visor.drawSetup(SCREEN_VERIFY_MQTT, 2000, statusCheck, stateCheck);
   // Check for errors
+  MQTT_JUMP:
   Serial.println("===========================");
   uint8_t errorValue  = 0;
   for (size_t i = 0; i <= 5; i++)
@@ -234,6 +237,10 @@ void setup() {
   Serial.print(F("Final error Code = "));
   Serial.println(errorValue);
   Serial.println("===========================\n\n") ;
+
+  COMPANY = datalogger.getCompany();
+  Serial.print("Company = ");
+  Serial.println(COMPANY);
 }
 
 void loop() {
@@ -266,7 +273,7 @@ void loop() {
   Serial.println(VEHICLE_REGISTER);
   Serial.println(F("==============================================================="));
   // final da funcao de captura do veiulo
-  if (OPERADOR_PERMISSION != "1"){
+  if (OPERADOR_PERMISSION == "3"){
     PERMISSION_TAG = OPERADOR_REGISTER + VEHICLE_REGISTER;
     Serial.println(PERMISSION_TAG);
     if (permission.check(PERMISSION_TAG) == false){
