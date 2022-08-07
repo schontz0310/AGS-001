@@ -269,7 +269,12 @@ enum ScreenName
   SCREEN_MENU_CADASTRO_VEHICLE_READ_NAME,
   SCREEN_MENU_CADASTRO_VEHICLE_READ_LEVEL,
   SCREEN_MENU_CADASTRO_PERMISSION_CHOICE,
+  SCREEN_MENU_CONFIGURACAO,
+  SCREEN_CONFIGURACAO_REGISTRO_CHOICE,
   SCREEN_PUMP_CHARGE_FUEL,
+
+  // SCREEN CONFIGURACAO
+  SCREEN_CONFIGURACAO_REGISTRO,
 
   // ACCESSES SCREEN
   SCREEN_ACCCESSES,
@@ -338,13 +343,16 @@ class DataLogger
     bool checkOperatorExist(String uuid);
     bool checkOperatorIsAdmin(String uuid);
     bool checkPermissionExist(String uuid);
+    bool checkCompanyExist(String document);
     String getOperator(String uuid);
     String getVehicle(String uuid);
+    String getCompany();
     bool checkVehicleExist(String uuid);
     void WriteOperatorInDatalogger();
     void WriteVehicleInDatalogger();
     void WritePermissionInDatalogger();
     void WriteFuelChargeInDatalogger();
+    void WriteCompanyRegisterInDatalogger();
     void WriteFailMqttLog(String payload);
     String getTimestamp();
     String _operatorUuid;
@@ -480,6 +488,7 @@ public:
   uint8_t _operatorlevel; //1= administrador 2= Frentista 3= Motorista
   String _vehicleName;
   VehicleFuel _vehicleFuel;
+  String _companyNumber;
   char _buffer[24];
   Menu();
   void menuPrincipal();
@@ -487,6 +496,10 @@ public:
   void menuCadastroOperador();
   void menuCadastroVeiculo();
   void permissionRegistrationMenu();
+
+  void menuConfiguracao();
+  void assignDeviceRegister();
+
   void menuAccesses(ScreenName nextScreen);
   void menuAccesses(MetodeAccesses metode, ScreenName nextScreen);
 };
@@ -521,6 +534,9 @@ class Access
   int _position;
   char _keyPressed;
   String _secret;
+  String _operatorLevel;
+  bool cardIsRead;
+
   
   public:
   char _buffer[16];
@@ -542,6 +558,7 @@ class Json{
     String jsonVehicleMount();
     String jsonPermissionMount();
     String jsonFuelChargeMount();
+    String jsonAssignMount();
 };
 
 #endif 
